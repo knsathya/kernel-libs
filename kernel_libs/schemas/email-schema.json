@@ -1,0 +1,70 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "description": "Email config schema",
+    "type": "object",
+    "required": [
+        "smtp-server",
+        "from",
+        "to"
+    ],
+    "properties": {
+        "smtp-server": {
+            "description": "SMTP server name",
+            "type": "string"
+        },
+        "smtp-port": {
+            "description": "SMTP port number",
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+        },
+        "smtp-authentication": {
+            "type": "string",
+            "description": "SMTP Authentication",
+            "enum": [
+                "TLS",
+                ""
+            ],
+            "default": ""
+        },
+        "smtp-username": {
+            "type": "string",
+            "description": "SMTP Username",
+            "default": ""
+        },
+        "smtp-password": {
+            "type": "string",
+            "description": "SMTP password",
+            "default": ""
+        },
+        "from": {
+            "description": "Senders email address",
+            "type": "string",
+            "format": "email"
+        },
+        "to": {
+            "description": "Receivers email address list",
+            "type": "array",
+            "items": {
+                "type": "string",
+                "format": "email"
+            }
+        },
+        "cc": {
+            "description": "Receivers CC email address list",
+            "type": "array",
+            "items": {
+                "type": "string",
+                "format": "email"
+            }
+        },
+        "bcc": {
+            "description": "Receivers BCC email address list",
+            "type": "array",
+            "items": {
+                "type": "string",
+                "format": "email"
+            }
+        }
+    }
+}
