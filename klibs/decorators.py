@@ -1,6 +1,15 @@
 import logging
 
 def format_h1(str='', width=64, fc='=', tab=0):
+    """
+    Formats the string "str" to a maximum length of 64, with fc chars as prefix.
+    Increasing the tab count will add given count of tab prefix/suffix.
+    :param str: Input string.
+    :param width: Maximum width of 64.
+    :param fc: Prefix/Suffix characters.
+    :param tab: Prefix/Suffix tabs.
+    :return: Formatted string.
+    """
     str_len = len(str)
     width = width - tab * 4
     flen = (width - str_len) / 2
@@ -14,6 +23,9 @@ def format_h1(str='', width=64, fc='=', tab=0):
     return "\n" + str_dec('\t', tab) + out + str_dec('\t', tab)
 
 class Decorator(object):
+    """
+    Base class for class Decorator
+    """
     def __init__(self, func, obj_=None, type_=None):
         self.func = func
         self.type = type_
@@ -27,6 +39,11 @@ class Decorator(object):
         return self.func(*args, **kwargs)
 
 class EntryExit(Decorator):
+    """
+    Track the entry/exit paths of the function.
+
+    Usage: Add @EntryExit before functions.
+    """
     def __init__(self, func, obj_=None, type_=None):
         self.func = func
         self.type = type_

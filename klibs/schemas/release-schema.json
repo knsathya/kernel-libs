@@ -1,0 +1,276 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "description": "Kernel release schema",
+    "type": "object",
+    "properties": {
+        "bundle": {
+            "type": "object",
+            "properties": {
+                "enable": {
+                    "description": "Enable this option if you want to create git bundle.",
+                    "type": "boolean",
+                    "default": false
+                },
+                "mode": {
+                    "description": "Bundle Mode",
+                    "enum": [
+                        "branch",
+                        "diff",
+                        "commit_count"
+                    ],
+                    "default": "branch"
+                },
+                "branch": {
+                    "description": "Name of the kernel branch",
+                    "type": "string",
+                    "default": ""
+                },
+                "base": {
+                    "type": "object",
+                    "properties": {
+                        "auto": {
+                            "type": "boolean",
+                            "default": true
+                        },
+                        "grep_tag": {
+                            "type": "string",
+                            "default": "Linux "
+                        },
+                        "value": {
+                            "type": "string",
+                            "default": "HEAD"
+                        }
+                    }
+                },
+                "head": {
+                    "type": "object",
+                    "properties": {
+                        "auto": {
+                            "type": "boolean",
+                            "default": true
+                        },
+                        "grep_tag": {
+                            "type": "string",
+                            "default": "Linux "
+                        },
+                        "value": {
+                            "type": "string",
+                            "default": "HEAD"
+                        }
+                    }
+                },
+                "commit_count": {
+                    "type": "number",
+                    "default": 0
+                },
+                "outname": {
+                    "type": "string",
+                    "default": "Linux.bundle"
+                },
+                "upload-params": {
+                    "$ref": "#/definitions/upload-params"
+                }
+            }
+        },
+        "quilt": {
+            "type": "object",
+            "properties": {
+                "enable": {
+                    "description": "Enable this option if you want to create git bundle.",
+                    "type": "boolean",
+                    "default": false
+                },
+                "branch": {
+                    "description": "Name of the kernel branch",
+                    "type": "string",
+                    "default": ""
+                },
+                "base": {
+                    "type": "object",
+                    "properties": {
+                        "auto": {
+                            "type": "boolean",
+                            "default": true
+                        },
+                        "grep_tag": {
+                            "type": "string",
+                            "default": "Linux "
+                        },
+                        "value": {
+                            "type": "string",
+                            "default": "HEAD"
+                        }
+                    }
+                },
+                "head": {
+                    "type": "object",
+                    "properties": {
+                        "auto": {
+                            "type": "boolean",
+                            "default": true
+                        },
+                        "grep_tag": {
+                            "type": "string",
+                            "default": "Linux "
+                        },
+                        "value": {
+                            "type": "string",
+                            "default": "HEAD"
+                        }
+                    }
+                },
+                "sed-file": {
+                    "type": "string",
+                    "default": ""
+                },
+                "series-comment": {
+                    "type": "string",
+                    "default": ""
+                },
+                "audit-script": {
+                    "type": "string",
+                    "default": ""
+                },
+                "outname": {
+                    "type": "string",
+                    "default": "Linux.bundle"
+                },
+                "upload-params": {
+                    "$ref": "#/definitions/upload-params"
+                }
+            }
+        },
+        "tar": {
+            "type": "object",
+            "properties": {
+                "enable": {
+                    "description": "Enable this option if you want to create tar file.",
+                    "type": "boolean",
+                    "default": false
+                },
+                "outname": {
+                    "type": "string",
+                    "default": "Linux.tar"
+                },
+                "skip-files": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [".git"]
+                },
+                "upload-params": {
+                    "$ref": "#/definitions/upload-params"
+                }
+            }
+        },
+        "upload-kernel": {
+            "type": "object",
+            "properties": {
+                "enable": {
+                    "description": "Enable this option if you want to upload kernel.",
+                    "type": "boolean",
+                    "default": false
+                },
+                "upload-params": {
+                    "$ref": "#/definitions/upload-params"
+                }
+            }
+        }
+    },
+    "definitions": {
+        "upload-params": {
+            "type": "object",
+            "required": ["remote-list"],
+            "properties": {
+                "enable": {
+                    "type": "boolean",
+                    "description": "Enable if you want to upload"
+                },
+                "remote-list": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": ["name", "url"],
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "description": "remote name"
+                            },
+                            "url": {
+                                "type": "string",
+                                "description": "remote URL"
+                            },
+                            "path": {
+                                "type": "string",
+                                "description": "remote relative directory",
+                                "default": ""
+                            },
+                            "branch": {
+                                "type": "string",
+                                "description": "remote branch name",
+                                "default": "master"
+                            }
+                        }
+                    }
+                },
+                "use-refs": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "force-push": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "clean-update": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "new-commit": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "copy-formats": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": ["*"]
+                },
+                "commit-msg": {
+                    "type": "string"
+                },
+                "timestamp-suffix": {
+                    "type": "boolean",
+                    "description": "Enable if you want to add timestamp suffix to remote directory.",
+                    "default": false
+                },
+                "timestamp-format":{
+                    "type": "string",
+                    "description": "Timestamp format",
+                    "default": "%m%d%Y%H%M%S"
+                },
+                "suffix-sep": {
+                    "type": "string",
+                    "description": "Suffix seperator",
+                    "default": "-"
+                },
+                "tag-list": {
+                    "type": "array",
+                    "items": {
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "description": "Name of the tag"
+                            },
+                            "msg": {
+                                "type": "string",
+                                "description": ""
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

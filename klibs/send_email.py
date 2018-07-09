@@ -1,65 +1,35 @@
 import smtplib
+import threading
+import asyncore
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from jsonparser import JSONParser
 import logging
 import re
 import pkg_resources
+import smtpd
+
+class CustomSMTPServer(smtpd.SMTPServer):
+    def process_message(self, peer, mailfrom, rcpttos, data):
+        return
 
 class Email(object):
-
     """
     Wrapper class for sending email.
     """
-
-    def _smtp_setup(self):
-
-        if self.smtp_server is None or not isinstance(self.smtp_server, basestring):
-            self.logger.error("Invalid SMTP server %s", self.smtp_server)
-            return False
-
-        if not self.smtp_port > 0 or not isinstance(self.smtp_port, (int, long)):
-            self.logger.error("Invalid SMTP port %s", str(self.smtp_port))
-            return False
-
-        self.smtp_obj = smtplib.SMTP(host=self.smtp_server, port=self.smtp_port)
-
-        if self.auth is not None and self.auth in self.supported_auths:
-            if self.auth == 'TLS':
-                self.smtp_obj.starttls()
-
-        if self.username is not None and self.password is not None:
-            self.smtp_obj.login(self.username, self.password)
-
-        self.logger.debug("SMTP Server Open():%s port:%d\n", self.smtp_server, self.smtp_port)
-
-    def _smtp_close(self):
-        self.smtp_obj.quit()
-        self.logger.debug("SMTP Server Close()\n")
-
-    def _valid_email(self, data):
-
-        def valid(email):
-            if re.match(r'(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)', email):
-                return True
-
-        if isinstance(data, list):
-            for item in data:
-                if not valid(item):
-                    return False
-            return True
-        elif isinstance(data, str):
-            if valid(data):
-                return True
-
-        return False
-
-
     def __init__(self, cfg=None, logger=None):
+        """
+        Email init()
+        :param cfg: Json config file, if given smtp/form/to paramaters will be parsed from Json.
+        :param logger: Logger object.
+        """
         self.logger = logger or logging.getLogger(__name__)
 
         # SMTP server related param defaults.
         self.smtp_server = None
+        self.smtp_thread = None
+        self.server_obj = None
+        self.client_obj = None
         self.smtp_port = 0
         self.supported_auths = ['TLS']
         self.auth = None
@@ -70,8 +40,7 @@ class Email(object):
         self.cfg_src = cfg
         self.cfg = None
         self.cfgobj = None
-        self.smtp_obj = None
-        self.schema = pkg_resources.resource_filename('kernel_libs', 'schemas/email-schema.json')
+        self.schema = pkg_resources.resource_filename('klibs', 'schemas/email-schema.json')
 
         # Set from/to/cc/bcc defaults
         self._from = None
@@ -90,7 +59,59 @@ class Email(object):
             self.set_smtp(self.cfg["smtp-server"], self.cfg["smtp-port"],
                           self.cfg["smtp-authentication"], self.cfg["smtp-username"],
                           self.cfg["smtp-password"])
+    def _smtp_setup(self):
 
+        if self.smtp_server is None or not isinstance(self.smtp_server, basestring):
+            self.logger.error("Invalid SMTP server %s", self.smtp_server)
+            return False
+
+        if not self.smtp_port >= 0 or not isinstance(self.smtp_port, (int, long)):
+            self.logger.error("Invalid SMTP port %s", str(self.smtp_port))
+            return False
+
+        if self.smtp_server == "localhost":
+            self.server_obj = CustomSMTPServer((self.smtp_server, self.smtp_port), None)
+            self.smtp_thread = threading.Thread(target=asyncore.loop, name="Asyncore Loop", kwargs = {'timeout':1})
+            self.smtp_thread.start()
+
+        self.client_obj = smtplib.SMTP(host=self.smtp_server, port=self.smtp_port)
+
+        if self.auth is not None and self.auth in self.supported_auths and self.smtp_server != "localhost":
+            if self.auth == 'TLS':
+                self.client_obj.starttls()
+
+        if self.username is not None and self.password is not None and self.smtp_server != "localhost":
+            self.client_obj.login(self.username, self.password)
+
+        self.logger.debug("SMTP Server Open():%s port:%d\n", self.smtp_server, self.smtp_port)
+
+    def _smtp_close(self):
+        self.client_obj.quit()
+        if self.server_obj is not None:
+            self.server_obj.close()
+        if self.smtp_thread is not None:
+            self.smtp_thread.join()
+        self.logger.debug("SMTP Server Close()\n")
+
+    def _valid_email(self, data):
+
+        def valid(email):
+            if re.match(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$', email):
+                self.logger.info("Valid email %s", email)
+                return True
+            else:
+                self.logger.info("Invalid email %s", email)
+
+        if isinstance(data, list):
+            for item in data:
+                if not valid(item):
+                    return False
+            return True
+        elif isinstance(data, basestring):
+            if valid(data):
+                return True
+
+        return False
 
     def set_smtp(self, smtp_server=None, smtp_port=None, auth=None, username=None, password=None):
 
@@ -117,10 +138,10 @@ class Email(object):
 
         def set_value(name, param, value):
             if value is not None:
-                if self._valid_email(param):
+                if self._valid_email(value):
                     return value
-            else:
-                self.logger.error("Invalid %s: %s address", name, value)
+                else:
+                    self.logger.error("Invalid %s: %s address", name, value)
 
             return getattr(self, param)
 
@@ -130,8 +151,6 @@ class Email(object):
         self._bcc = set_value('BCC', '_bcc', _bcc)
 
     def send_email(self, subject='', content=''):
-
-        set_val = lambda x, y: getattr(self, y) if x is None or x == '' else x
 
         self.logger.info("From: %s\nTo: %s\nCC: %s\nBCC: %s\nSubject: %s\n",
                          self._from, self._to, self._cc, self._bcc, subject)
@@ -148,7 +167,7 @@ class Email(object):
         msg['Bcc'] = ','.join(self._bcc)
         msg.attach(MIMEText(content))
 
-        self.smtp_obj.sendmail(self._from, rcpt, msg.as_string())
+        self.client_obj.sendmail(self._from, rcpt, msg.as_string())
 
         self._smtp_close()
 

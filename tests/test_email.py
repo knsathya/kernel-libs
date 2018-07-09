@@ -19,12 +19,13 @@
 from __future__ import absolute_import
 
 import pkg_resources
+import smtpd
 import os
 import unittest
 import pyshell
 import logging
 import re
-import kernel_libs as klibs
+import klibs as klibs
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(format='%(message)s')
@@ -35,7 +36,6 @@ class PyShellTest(unittest.TestCase):
         cfg_file = pkg_resources.resource_filename('tests', 'config/email-config.json')
         email = klibs.Email(cfg=cfg_file, logger=logger)
         email.send_email("test", "Hi! How are you!!")
-::
 
 if __name__ == '__main__':
     unittest.main()

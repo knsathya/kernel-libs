@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# kernel_libs setup script
+# klibs setup script
 #
 # Copyright (C) 2018 Sathya Kuppuswamy
 #
@@ -25,7 +25,7 @@ with open('README.rst') as f:
 with open('LICENSE') as f:
     license = f.read()
 
-setup(name='kernel_libs',
+setup(name='klibs',
       version='0.1',
       description='Python support classes fo automating kernel build/test',
       long_description=readme,
@@ -35,12 +35,12 @@ setup(name='kernel_libs',
         'Programming Language :: Python :: 2.7',
         'Topic :: Text Processing :: Linguistic',
       ],
-      keywords='python git pyshell shell linux',
-      url='https://github.com/knsathya/kernel_libs.git',
+      keywords='python git kernel autotesting test scripts shell linux',
+      url='https://github.com/knsathya/klibs.git',
       author='Kuppuswamy Sathyanarayanan',
       author_email='sathyaosid@gmail.com',
       license='GPLv2',
-      packages=['kernel_libs'],
+      packages=['klibs'],
       install_requires=[
 
       ],

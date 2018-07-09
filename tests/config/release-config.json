@@ -1,0 +1,113 @@
+{
+    "quilt": {
+        "enable": false,
+        "outname": "quilt",
+        "sed-file": "",
+        "series-comment": "",
+        "audit-script": "",
+        "branch": "",
+        "upload-params": {
+            "enable": false,
+            "remote-list": [
+                {
+                    "name": "origin",
+                    "url": "https://knsathya@github.com/knsathya/linux.git",
+                    "path": ".",
+                    "branch": "master"
+                }
+            ],
+            "branch": "",
+            "base": {
+                "auto": false,
+                "grep_tag": "Linux ",
+                "value": "HEAD"
+            },
+            "head": {
+                "auto": false,
+                "grep_tag": "Linux ",
+                "value": "HEAD"
+            },
+            "new-commit": false,
+            "commit-msg": "",
+            "timestamp-suffix": false,
+            "timestamp-format": "",
+            "suffix-sep": "-",
+            "tag-list": []
+        }
+    },
+    "bundle": {
+        "enable": false,
+        "outname": "Linux 4.18-rc3.bundle",
+        "mode": "branch",
+        "commit_count": 0,
+        "branch": "",
+        "upload-params": {
+            "enable": false,
+            "remote-list": [
+                {
+                    "name": "origin",
+                    "url": "https://knsathya@github.com/knsathya/linux.git",
+                    "path": ".",
+                    "branch": "master"
+                }
+            ],
+            "base": {
+                "auto": false,
+                "grep_tag": "Linux ",
+                "value": "HEAD"
+            },
+            "head": {
+                "auto": false,
+                "grep_tag": "Linux ",
+                "value": "HEAD"
+            },
+            "new-commit": false,
+            "commit-msg": "",
+            "timestamp-suffix": false,
+            "timestamp-format": "",
+            "suffix-sep": "-",
+            "tag-list": []
+        }
+    },
+    "tar": {
+        "enable": false,
+        "outname": "Linux 4.18-rc3.bundle",
+        "upload-params": {
+            "enable": false,
+            "remote-list": [
+                {
+                    "name": "origin",
+                    "url": "https://knsathya@github.com/knsathya/linux.git",
+                    "path": ".",
+                    "branch": "master"
+                }
+            ],
+            "new-commit": false,
+            "commit-msg": "",
+            "timestamp-suffix": false,
+            "timestamp-format": "",
+            "suffix-sep": "-",
+            "tag-list": []
+        }
+    },
+    "upload-kernel": {
+        "enable": false,
+        "upload-params": {
+            "enable": false,
+            "remote-list": [
+                {
+                    "name": "origin",
+                    "url": "https://knsathya@github.com/knsathya/linux.git",
+                    "path": ".",
+                    "branch": "master"
+                }
+            ],
+            "new-commit": false,
+            "commit-msg": "",
+            "timestamp-suffix": false,
+            "timestamp-format": "",
+            "suffix-sep": "-",
+            "tag-list": []
+        }
+    }
+}

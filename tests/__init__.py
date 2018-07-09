@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 #
-# kernel_libs test script
+# kernel library test script
 #
 # Copyright (C) 2018 Sathya Kuppuswamy
 #
