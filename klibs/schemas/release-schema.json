@@ -67,6 +67,10 @@
                     "type": "string",
                     "default": "Linux.bundle"
                 },
+                "upload-dir": {
+                    "type": "string",
+                    "default": ""
+                },
                 "upload-params": {
                     "$ref": "#/definitions/upload-params"
                 }
@@ -133,7 +137,11 @@
                 },
                 "outname": {
                     "type": "string",
-                    "default": "Linux.bundle"
+                    "default": "quilt"
+                },
+                "upload-dir": {
+                    "type": "string",
+                    "default": ""
                 },
                 "upload-params": {
                     "$ref": "#/definitions/upload-params"
@@ -159,6 +167,10 @@
                     },
                     "default": [".git"]
                 },
+                "upload-dir": {
+                    "type": "string",
+                    "default": ""
+                },
                 "upload-params": {
                     "$ref": "#/definitions/upload-params"
                 }
@@ -171,6 +183,10 @@
                     "description": "Enable this option if you want to upload kernel.",
                     "type": "boolean",
                     "default": false
+                },
+                "upload-dir": {
+                    "type": "string",
+                    "default": ""
                 },
                 "upload-params": {
                     "$ref": "#/definitions/upload-params"

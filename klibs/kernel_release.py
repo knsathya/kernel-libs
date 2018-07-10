@@ -49,8 +49,8 @@ class KernelRelease(object):
         self.schema = pkg_resources.resource_filename('klibs', 'schemas/release-schema.json')
         self.bundle_modes = ['branch', 'diff', 'commit_count']
 
-        self.git.dryrun(True)
-        self.sh.dryrun(True)
+        self.git.dryrun(False)
+        self.sh.dryrun(False)
 
         if not is_valid_kernel(src, logger):
             return
@@ -62,7 +62,7 @@ class KernelRelease(object):
             self.valid_git = True
 
     def auto_release(self):
-        str_none =  lambda x: None if len(x) == 0 else x
+        str_none =  lambda x: None if len(x) == 0 else x.strip()
         if self.cfg is None:
             self.logger.error("Invalid config file %s", self.cfg)
             return False
@@ -108,7 +108,7 @@ class KernelRelease(object):
                 bundle = self.generate_git_bundle(params["outname"], params["mode"], str_none(params["branch"]),
                                                   head, base, params["commit_count"])
                 if bundle is not None:
-                    self.git_upload(bundle, None, True, None, uparams["commit-msg"],
+                    self.git_upload(bundle, str_none(params["upload-dir"]), True, None, uparams["commit-msg"],
                                     conv_remotelist(uparams["remote-list"]),
                                     uparams["use-refs"], uparams["force-push"], uparams["clean-update"],
                                     uparams["timestamp-suffix"], uparams["suffix-sep"], uparams["timestamp-format"],
@@ -131,7 +131,7 @@ class KernelRelease(object):
 
                 base = params["base"]["value"]
                 if params["base"]["auto"]:
-                    base = self.git.cmd('describe --abbrev=0 --tags')
+                    base = self.git.cmd('describe --abbrev=0 --tags')[1]
                 base = str_none(base)
 
                 head = params["head"]["value"]
@@ -142,16 +142,20 @@ class KernelRelease(object):
                 if head is None or base is None:
                     Exception("Invalid base/head %s/%s", base, head)
 
+                self.logger.info("head:%s base:%s", head, base)
+
                 quilt = self.generate_quilt(str_none(params["branch"]), base, head, params['outname'],
                                             str_none(params["sed-file"]), str_none(params["audit-script"]),
                                             params['series-comment'])
 
                 if quilt is not None:
-                    ret = self.git_upload(quilt, None, uparams["new-commit"], conv_copyformat(uparams["copy-formats"]),
+                    ret = self.git_upload(quilt, str_none(params["upload-dir"]), uparams["new-commit"],
+                                          conv_copyformat(uparams["copy-formats"]),
                                           uparams["commit-msg"], conv_remotelist(uparams["remote-list"]),
                                           uparams["use-refs"], uparams["force-push"], uparams["clean-update"],
                                           uparams["timestamp-suffix"], uparams["suffix-sep"],
                                           uparams["timestamp-format"], conv_taglist(uparams["tag-list"]))
+
                     if ret is None:
                         Exception("Quilt upload failed")
                 else:
@@ -169,7 +173,7 @@ class KernelRelease(object):
                 tarname = self.generate_tar_gz(params["outname"], params["branch"], params["skip_files"])
 
                 if tarname is not None:
-                    ret = self.git_upload(tarname, None, uparams["new-commit"],
+                    ret = self.git_upload(tarname, str_none(params["upload-dir"]), uparams["new-commit"],
                                           conv_copyformat(uparams["copy-formats"]), uparams["commit-msg"],
                                           conv_remotelist(uparams["remote-list"]),
                                           uparams["use-refs"], uparams["force-push"], uparams["clean-update"],
@@ -189,7 +193,8 @@ class KernelRelease(object):
             params = self.cfg["upload-kernel"]
             uparams = self.cfg["upload-kernel"]["upload-params"]
             if params["enable"]:
-                ret = self.git_upload(self.src, None, uparams["new-commit"], conv_copyformat(uparams["copy-formats"]),
+                ret = self.git_upload(self.src, str_none(params["upload-dir"]), uparams["new-commit"],
+                                      conv_copyformat(uparams["copy-formats"]),
                                       uparams["commit-msg"], conv_remotelist(uparams["remote-list"]),
                                       uparams["use-refs"], uparams["force-push"], uparams["clean-update"],
                                       uparams["timestamp-suffix"], uparams["suffix-sep"], uparams["timestamp-format"],
@@ -261,13 +266,9 @@ class KernelRelease(object):
             uploaddir = temp_dir
 
         def copyanything(src, dst):
-            try:
-                shutil.copytree(src, dst)
-            except OSError as exc:  # python >2.5
-                if exc.errno == errno.ENOTDIR:
-                    shutil.copy(src, dst)
-                else:
-                    raise
+            self.logger.info("Copy everything from %s to %s", src, dst)
+            sh = PyShell(wd=src, logger=self.logger)
+            sh.cmd("cp -a %s/* %s/" % (src, dst))
 
         def empty_folder(dirname):
             for root, dirs, files in os.walk(dirname):

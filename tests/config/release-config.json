@@ -6,6 +6,16 @@
         "series-comment": "",
         "audit-script": "",
         "branch": "",
+        "base": {
+            "auto": false,
+            "grep_tag": "Linux ",
+            "value": "HEAD"
+        },
+        "head": {
+            "auto": false,
+            "grep_tag": "Linux ",
+            "value": "HEAD"
+        },
         "upload-params": {
             "enable": false,
             "remote-list": [
@@ -16,17 +26,6 @@
                     "branch": "master"
                 }
             ],
-            "branch": "",
-            "base": {
-                "auto": false,
-                "grep_tag": "Linux ",
-                "value": "HEAD"
-            },
-            "head": {
-                "auto": false,
-                "grep_tag": "Linux ",
-                "value": "HEAD"
-            },
             "new-commit": false,
             "commit-msg": "",
             "timestamp-suffix": false,
@@ -41,6 +40,16 @@
         "mode": "branch",
         "commit_count": 0,
         "branch": "",
+        "base": {
+            "auto": false,
+            "grep_tag": "Linux ",
+            "value": "HEAD"
+        },
+        "head": {
+            "auto": false,
+            "grep_tag": "Linux ",
+            "value": "HEAD"
+        },
         "upload-params": {
             "enable": false,
             "remote-list": [
@@ -51,16 +60,6 @@
                     "branch": "master"
                 }
             ],
-            "base": {
-                "auto": false,
-                "grep_tag": "Linux ",
-                "value": "HEAD"
-            },
-            "head": {
-                "auto": false,
-                "grep_tag": "Linux ",
-                "value": "HEAD"
-            },
             "new-commit": false,
             "commit-msg": "",
             "timestamp-suffix": false,

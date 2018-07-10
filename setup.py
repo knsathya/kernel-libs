@@ -42,11 +42,12 @@ setup(name='klibs',
       license='GPLv2',
       packages=['klibs'],
       install_requires=[
-
+          'pyshell',
+          'jsonparser'
       ],
       dependency_links=[
-          'https://github.com/knsathya/pyshell.git#egg=pyshell',
-          'https://github.com/knsathya/jsonparser.git#egg=jsonparser'
+          'git+https://github.com/knsathya/pyshell.git#egg=pyshell',
+          'git+https://github.com/knsathya/jsonparser.git#egg=jsonparser'
       ],
       test_suite='tests',
       tests_require=[
