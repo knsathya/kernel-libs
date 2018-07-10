@@ -1,0 +1,262 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "description": "Kernel integration schema",
+    "type": "object",
+    "required": [
+        "remote-list",
+        "repo-list",
+        "int-list"
+    ],
+    "properties": {
+        "remote-list": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "description": "git remote related params",
+                "required": [
+                    "name",
+                    "url"
+                ],
+                "properties": {
+                    "name": {
+                        "description": "git remote name",
+                        "type": "string"
+                    },
+                    "url": {
+                        "description": "git remote link of your repository",
+                        "type": "string",
+                        "pattern": "((git|ssh|http(s)?)|(git@[\\w\\.]+))(:(//)?)([\\w\\.@\\:\\-~]+)(/)?"
+                    }
+                }
+            }
+        },
+        "repo-list": {
+            "type": "array",
+            "description": "List of repositories",
+            "items": {
+                "type": "object",
+                "required": [
+                    "repo-name",
+                    "source-list",
+                    "dest-list"
+                ],
+                "properties": {
+                    "repo-name": {
+                        "description": "Name of the repository",
+                        "type": "string"
+                    },
+                    "repo-head": {
+                        "description": "SHA ID or Kernel tag of the repo HEAD",
+                        "type": "string",
+                        "default": ""
+                    },
+                    "send-email": {
+                        "description": "Enable to send email on conflicts/error",
+                        "type": "boolean",
+                        "default": false
+                    },
+                    "source-list": {
+                        "description": "List of the branches to be merged into the current repository",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "description": "Source repository params",
+                            "required": [
+                                "branch"
+                            ],
+                            "properties": {
+                                "use-local": {
+                                    "description": "Enable if the branch is locally available",
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "skip": {
+                                    "description": "Toggle button to skip a branch from list",
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "url": {
+                                    "description": "Source repo remote URL",
+                                    "type": "string",
+                                    "default": ""
+                                },
+                                "branch": {
+                                    "description": "Source repo remote branch name",
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "dest-list": {
+                        "description": "List of the branches to be created using list of source branches.",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "description": "Destination branch params",
+                            "properties": {
+                                "local-branch": {
+                                    "description": "Name of the branch",
+                                    "type": "string"
+                                },
+                                "merge-mode": {
+                                    "description": "Mode of merge. replace mode works only with single source branch.",
+                                    "enum": [
+                                        "rebase",
+                                        "merge",
+                                        "replace"
+                                    ],
+                                    "default": "replace"
+                                },
+                                "test-branch": {
+                                    "description": "Enable if you want to test the branch",
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "upload-copy": {
+                                    "description": "Enable if you want to upload the branch to a remote server",
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "generate-output": {
+                                    "description": "Enable if you generate output in different formats (Quilt, tar)",
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "send-email": {
+                                    "description": "Enable to send email on merge conflicts",
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "merge-options": {
+                                    "type": "object",
+                                    "properties": {
+                                        "no-ff": {
+                                            "description": "Enable no fast forward",
+                                            "type": "boolean",
+                                            "default": false
+                                        },
+                                        "add-log": {
+                                            "description": "Add merge log",
+                                            "type": "boolean",
+                                            "default": false
+                                        },
+                                        "use-rr-cache": {
+                                            "type": "boolean",
+                                            "default": false
+                                        },
+                                        "rr-cache": {
+                                            "type": "object",
+                                            "properties": {
+                                                "use-remote-cache": {
+                                                    "type": "boolean",
+                                                    "default": false
+                                                },
+                                                "upload-remote-cache": {
+                                                    "type": "boolean",
+                                                    "default": false
+                                                },
+                                                "use-auto-merge": {
+                                                    "type": "boolean",
+                                                    "default": false
+                                                },
+                                                "remote-cache-params": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "url": {
+                                                            "type": "string"
+                                                        },
+                                                        "remote-dir": {
+                                                            "type": "string"
+                                                        },
+                                                        "username": {
+                                                            "type": "string"
+                                                        },
+                                                        "password": {
+                                                            "type": "string"
+                                                        },
+                                                        "sync-protocol": {
+                                                            "enum": [
+                                                                "smb",
+                                                                "rsync",
+                                                                "wget",
+                                                                "git"
+                                                            ]
+                                                        },
+                                                        "sync-options": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "upload-protocol": {
+                                                            "enum": [
+                                                                "smb",
+                                                                "rsync",
+                                                                "wget",
+                                                                "git"
+                                                            ]
+                                                        },
+                                                        "upload-options": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            }
+                                                        }
+                                                    },
+                                                    "default": {}
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                "upload-options": {
+                                    "type": "object",
+                                    "properties": {
+                                        "mode": {
+                                            "description": "Push model to be used during repository upload",
+                                            "enum": [
+                                                "force-push",
+                                                "push",
+                                                "refs-for"
+                                            ],
+                                            "default": "force-push"
+                                        },
+                                        "url": {
+                                            "description": "Name of the remote server",
+                                            "type": "string"
+                                        },
+                                        "branch": {
+                                            "description": "Name of the remote branch",
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "int-list": {
+            "type": "array",
+            "description": "List of repos needs to be integrated",
+            "items": {
+                "type": "object",
+                "description": "kint repo params",
+                "properties": {
+                    "dep-repos": {
+                        "description": "List of dependent repos of kint-repo ",
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "repo": {
+                        "description": "Name of the integration repo (name should match 'repos' list)",
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
+}
