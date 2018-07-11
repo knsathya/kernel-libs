@@ -108,11 +108,12 @@ class KernelRelease(object):
                 bundle = self.generate_git_bundle(params["outname"], params["mode"], str_none(params["branch"]),
                                                   head, base, params["commit_count"])
                 if bundle is not None:
-                    self.git_upload(bundle, str_none(params["upload-dir"]), True, None, uparams["commit-msg"],
+                    self.git_upload(bundle, str_none(params["upload-dir"]), uparams["new-commit"],
+                                    conv_copyformat(uparams["copy-formats"]), uparams["commit-msg"],
                                     conv_remotelist(uparams["remote-list"]),
                                     uparams["use-refs"], uparams["force-push"], uparams["clean-update"],
                                     uparams["timestamp-suffix"], uparams["suffix-sep"], uparams["timestamp-format"],
-                                    conv_taglist(uparams))
+                                    conv_taglist(uparams["tag-list"]))
                 else:
                     Exception("Generate bundle failed")
 
@@ -259,23 +260,17 @@ class KernelRelease(object):
         temp_dir = tempfile.mkdtemp()
         if uploaddir is not None:
             uploaddir = os.path.abspath(uploaddir)
-            if os.path.exists(uploaddir):
-                shutil.rmtree(uploaddir, ignore_errors=True)
-            os.makedirs(uploaddir)
         else:
             uploaddir = temp_dir
 
         def copyanything(src, dst):
             self.logger.info("Copy everything from %s to %s", src, dst)
-            sh = PyShell(wd=src, logger=self.logger)
-            sh.cmd("cp -a %s/* %s/" % (src, dst))
-
-        def empty_folder(dirname):
-            for root, dirs, files in os.walk(dirname):
-                for f in files:
-                    os.unlink(os.path.join(root, f))
-                for d in dirs:
-                    shutil.rmtree(os.path.join(root, d))
+            if not os.path.isfile(src):
+                sh = PyShell(wd=src, logger=self.logger)
+                sh.cmd("cp -a %s/* %s/" % (src, dst), shell=True)
+            else:
+                sh = PyShell(wd=self.src, logger=self.logger)
+                sh.cmd("cp -a %s %s/" % (src, dst), shell=True)
 
         def upload_tags(remote, tag_list):
             if tag_list is not None:
@@ -295,11 +290,14 @@ class KernelRelease(object):
         try:
             for remote in remote_list:
                 self.logger.info(remote)
-                empty_folder(uploaddir)
+                #empty_folder(uploaddir)
                 repo_dir = src
                 if new_commit:
 
                     git = GitShell(wd=uploaddir, init=True, remote_list=[(remote[0], remote[1])], fetch_all=True)
+
+                    git.cmd('clean -xdfq')
+                    git.cmd('reset --hard')
 
                     if git.cmd("checkout", remote[0] + '/' + remote[2])[0] != 0:
                         Exception("Git checkout remote:%s branch:%s failed", remote[1], remote[2])
@@ -484,7 +482,11 @@ class KernelRelease(object):
         # If the bundle file is already present, delete it.
         outfile = os.path.abspath(outfile)
         if os.path.exists(outfile):
-            shutil.rmtree(outfile)
+            try:
+                pass
+                #os.remove(outfile)
+            except:
+                pass
 
         self.logger.info(format_h1("Generating git bundle", tab=2))
 
