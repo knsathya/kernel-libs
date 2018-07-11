@@ -55,6 +55,11 @@
                         "type": "boolean",
                         "default": false
                     },
+                    "email-prefix": {
+                        "description": "Email prefix to be included in subject",
+                        "type": "string",
+                        "default": ""
+                    },
                     "source-list": {
                         "description": "List of the branches to be merged into the current repository",
                         "type": "array",
@@ -122,11 +127,6 @@
                                     "type": "boolean",
                                     "default": false
                                 },
-                                "send-email": {
-                                    "description": "Enable to send email on merge conflicts",
-                                    "type": "boolean",
-                                    "default": false
-                                },
                                 "merge-options": {
                                     "type": "object",
                                     "properties": {
@@ -143,6 +143,16 @@
                                         "use-rr-cache": {
                                             "type": "boolean",
                                             "default": false
+                                        },
+                                        "send-email": {
+                                            "description": "Enable to send email on merge conflicts",
+                                            "type": "boolean",
+                                            "default": false
+                                        },
+                                        "email-prefix": {
+                                            "description": "Email prefix to be included in subject for merge issues",
+                                            "type": "string",
+                                            "default": ""
                                         },
                                         "rr-cache": {
                                             "type": "object",

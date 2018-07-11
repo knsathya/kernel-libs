@@ -18,18 +18,18 @@
 
 import os
 import logging, logging.config
+import pkg_resources
 import argparse
 import yaml
 from shutil import rmtree, move
 
-from lib.json_parser import JSONParser
-from lib.build_kernel import BuildKernel
-from lib.decorators import format_h1
-from lib.rand_utils import git_send_email
-from lib.pyshell import GitShell, PyShell
+from jsonparser import JSONParser
+from decorators import format_h1
+from pyshell import GitShell, PyShell
+from kernel_test import KernelTest
+from kernel_release import KernelRelease
+from send_email import Email
 
-
-GIT_COMMAND_PATH='/usr/bin/git'
 
 set_val = lambda k, v: v if k is None else k
 
@@ -125,71 +125,78 @@ class KernelInteg(object):
         :param head: SHA ID
         :return: True if the SHA ID or head is valid, otherwise return False.
         """
+        if len(head) == 0:
+            return False
+
         ret, out, err  = self.git.cmd('show', head)
         if ret == 0:
             return True
 
         return False
 
-    def _is_valid_local_branch(self, branch):
+    def _is_valid_branch(self, remote, branch):
         """
         Check whether given branch is available in repo directory or not.
+        :param remote: git remote name
         :param branch: git branch name.
         :return: True if the branch name is valid, otherwise False.
         """
-        branches = self._git('branch')
-        self.logger.info(map(lambda it: it.strip().replace('* ', ''), branches.splitlines()))
-        # Check if given branch name is branch of 'git branch' command output.
-        if branch not in map(lambda it: it.strip().replace('* ', ''), branches.splitlines()):
-            self.logger.error("%s invalid branch name\n" % branch)
-            return False
+        if remote is not None and len(remote) > 0:
+            branch = remote + '/' + branch
 
-        return True
+        if self.git.cmd('branch', '--list', branch)[1].strip() == branch.strip()
+            return True
 
-    def __init__(self, cfg, schema, repo_head='', repo_dir=os.getcwd(), subject_prefix='', skip_rr_cache=False, logger=None):
-        # type: (json, jsonschema, str, str, str, boolean, boolean) -> object
+        self.logger.error("%s invalid branch name\n" % branch)
+
+        return False
+
+    def __init__(self, repo_dir, cfg, repo_head=None, testcfg=None, emailcfg=None, releasecfg=None, logger=None):
         """
         Constructor of KernelInteg class.
         :rtype: object
         :param cfg: Kernel Integration Json config file.
         :param schema: Kernel Integration Json schema file.
-        :param repo_head: SHA-ID or Tag of given branch.
+        :param head: SHA-ID or Tag of given branch.
         :param repo_dir: Repo directory.
         :param subject_prefix: Prefix for email subject.
         :param skip_rr_cache: Skip rr cache if set True.
         :param logger: Logger object
         """
         self.logger = logger or logging.getLogger(__name__)
-        self.cfg = JSONParser(cfg, schema, logger=self.logger).get_cfg()
+        self.schema = pkg_resources.resource_filename('klibs', 'schemas/integ-schema.json')
+        self.emailschema = pkg_resources.resource_filename('klibs', 'schemas/email-schema.json')
+        self.releaseschema = pkg_resources.resource_filename('klibs', 'schemas/release-schema.json')
+        self.testschema = pkg_resources.resource_filename('klibs', 'schemas/test-schema.json')
+
+        self.cfgobj = JSONParser(self.schema, cfg, extend_defaults=True, os_env=True, logger=self.logger)
+        self.cfg = self.cfgobj.get_cfg()
+
+        # Update email configs.
+        if emailcfg is not None:
+            self.emailobj = Email(emailcfg, self.logger)
+        else:
+            self.emailobj = None
+
+        self.releasecfg = releasecfg
+        self.testcfg = testcfg
+
         self.remote_list = self.cfg['remote-list']
-        self.repos = self.cfg['repos']
-        self.kint_repos = self.cfg['kint-list']
-        self.email_options = self.cfg['email-options']
-        self.test_profiles = self.cfg['test-profiles']
+        self.repos = self.cfg['repo-list']
+        self.int_list = self.cfg['int-list']
+
         self.repo_dir = repo_dir
-        self.skip_rr_cache = skip_rr_cache
-        self.subject_prefix = subject_prefix
+        self.sh = PyShell(wd=self.repo_dir, logger=self.logger)
+
         # All git commands will be executed in repo directory.
-        self.git = GitShell(wd=self.repo_dir, logger=self.logger)
-
-        # git init
         self.logger.info(format_h1("Initalizing repo", tab=2))
-        if not os.path.exists(os.path.join(self.repo_dir, ".git")):
-            self._git("init", ".")
+        self.git = GitShell(wd=self.repo_dir, init=True, logger=self.logger)
 
-        # Create out dir if its not exists.
-        out_dir = os.path.join(self.repo_dir, 'out')
-        if not os.path.exists(out_dir):
-            self.logger.info(format_h1("Create out dir", tab=2))
-            os.makedirs(out_dir)
-
-        # Add git remote
+        # Add git remote and fetch the tags.
         self.logger.info(format_h1("Add remote", tab=2))
         for remote in self.remote_list:
-            self._git("remote", "add", remote['name'], remote['url'], silent=True)
-
-        # Get the latest updates
-        self._git("remote", "update")
+            self.git.add_remote(remote['name'], remote['url'])
+            self.git.cmd("fetch", remote['name'])
 
         valid_repo_head = False
 
@@ -205,14 +212,8 @@ class KernelInteg(object):
             if valid_repo_head is True:
                 repo['repo-head'] = repo_head
             else:
-                if len(repo['repo-head']) == 0:
-                    raise Exception("No valid repo head found for %s" % repo['repo-name'])
-                else:
-                    if self._is_valid_head(repo['repo-head']) is False:
-                        raise Exception("Invalid repo head %s" % repo['repo-head'])
-
-        # Checkout some random HEAD
-        self._git("checkout", 'HEAD~1', silent=True)
+                if self._is_valid_head(repo['repo-head']) is False:
+                    raise Exception("Invalid repo head %s" % repo['repo-head'])
 
     def clean_repo(self):
         """
@@ -547,12 +548,13 @@ class KernelInteg(object):
             rmtree(rr_cache_dir, ignore_errors=True)
             sh.cmd('mv', rr_cache_old_dir, rr_cache_dir)
 
-    def _merge_branches(self, mode, merge_list, dest, params):
+    def _merge_branches(self, mode, merge_list, dest, options):
         """
         Merge the branches given in merge_list and create a output branch.
         Basic logic is,
         if mode is rebase, then git rebase all branches in merge_list onto to dest branch.
         if mode is merge, then git merge/pull all branches on top of dest branch.
+        if mode is replace, then simple checkout will be done.
         :param mode:  Rebase, merge, pull
         :param merge_list: List of (remote, branch) tupule.
         :param dest: Dest branch name.
@@ -619,7 +621,7 @@ class KernelInteg(object):
         elif upload_options['mode'] == 'refs-for':
             self._git("push", upload_options['url'], branch_name + ":refs/for/" + upload_options['branch'])
 
-    def _create_branch(self, repo):
+    def _create_repo(self, repo):
         """
         Merge the branches given in source-list and create list of output branches as specificed by dest-list option.
         :param repo: Dict with kernel repo options. Check "repo-params" section in kernel integration schema file for
@@ -631,34 +633,54 @@ class KernelInteg(object):
         merge_list = []
         status = True
 
+        # Clean existing git operations
+        try:
+            self.git.cmd('merge --abort')
+            self.git.cmd('rebase --abort')
+            self.git.cmd('cherry-pick --abort')
+            self.git.cmd('revert --abort')
+        except:
+            pass
+
         # Get source branches
         for srepo in repo['source-list']:
             if srepo['skip'] is True:
                 continue
-            if srepo['use-local'] is True:
-                if self._is_valid_local_branch(srepo['branch']) is False:
-                    raise Exception("Dependent repo %s does not exits" % srepo['branch'])
-                merge_list.append(('', srepo['branch']))
+            if self._is_valid_branch(srepo['url'], srepo['branch']) is False:
+                raise Exception("Dependent repo %s/%s does not exits" % (srepo['url'], srepo['branch']))
             else:
                 merge_list.append((srepo['url'], srepo['branch']))
 
         # Create destination branches
-        for dest_repo in repo['dest-list']:
+        dest_branches = []
+        try:
+            for dest_repo in repo['dest-list']:
 
-            self._git("branch", "-D", dest_repo['local-branch'], silent=True)
-            self._git("checkout", repo['repo-head'], "-b", dest_repo['local-branch'])
+                if self._is_valid_branch('', dest_repo['local-branch']):
+                    ret = self.git.cmd("branch", "-D", dest_repo['local-branch'])[0]
+                    if ret != 0:
+                        Exception("Deleting branch %s failed" % dest_repo['local-branch'])
 
-            if len(merge_list) > 0:
-                self._merge_branches(dest_repo['merge-mode'], merge_list,
-                                     dest_repo['local-branch'],
-                                     dest_repo['merge-options'])
+                self._git("checkout", repo['repo-head'], "-b", dest_repo['local-branch'])
 
-            if dest_repo['test-branch'] is True:
-                test_options = dest_repo['test-options']
-                status = self._test_branch(dest_repo['local-branch'], test_options)
-                if status is False:
-                    self.logger.error("Testing %s branch failed" % dest_repo['local-branch'])
-                    break
+                if len(merge_list) > 0:
+                    self._merge_branches(dest_repo['merge-mode'], merge_list,
+                                         dest_repo['local-branch'],
+                                         dest_repo['merge-options'])
+
+                if dest_repo['test-branch'] is True:
+                    test_options = dest_repo['test-options']
+                    status = self._test_branch(dest_repo['local-branch'], test_options)
+                    if status is False:
+                        self.logger.error("Testing %s branch failed" % dest_repo['local-branch'])
+                        break
+        except Exception as e:
+            self.logger.error(e)
+            for branch in dest_branches:
+                self.git.cmd("branch", "-D", branch)[0]
+            raise Exception("repo %s creation failed" % repo['repo-name'])
+        else:
+            self.logger.info("repo %s creation successfull" % repo['repo-name'])
 
         # Compare destination branches
         if status is True:
