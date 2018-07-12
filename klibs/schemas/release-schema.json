@@ -156,6 +156,11 @@
                     "type": "boolean",
                     "default": false
                 },
+                "branch": {
+                    "description": "Name of the kernel branch",
+                    "type": "string",
+                    "default": ""
+                },
                 "outname": {
                     "type": "string",
                     "default": "Linux.tar"
@@ -183,6 +188,11 @@
                     "description": "Enable this option if you want to upload kernel.",
                     "type": "boolean",
                     "default": false
+                },
+                "branch": {
+                    "description": "Name of the kernel branch",
+                    "type": "string",
+                    "default": ""
                 },
                 "upload-dir": {
                     "type": "string",

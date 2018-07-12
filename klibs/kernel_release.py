@@ -24,6 +24,7 @@ import tempfile
 import shutil
 import glob
 import errno
+import traceback
 
 from jsonparser import JSONParser
 from decorators import format_h1
@@ -70,7 +71,6 @@ class KernelRelease(object):
         def conv_remotelist(remote_list):
             new_list = []
             for remote in remote_list:
-                self.logger.info(remote)
                 new_list.append((remote["name"], remote["url"], remote["branch"], remote["path"]))
 
             return new_list if len(new_list) > 0 else None
@@ -118,9 +118,10 @@ class KernelRelease(object):
                     Exception("Generate bundle failed")
 
         except Exception as e:
-            self.logger.error(e)
+            self.logger.error(e, exc_info=True)
         else:
-            self.logger.info(format_h1("Successfully created git bundle", tab=2))
+            if self.cfg["bundle"]["enable"]:
+                self.logger.info(format_h1("Successfully created git bundle", tab=2))
 
 
         try:
@@ -163,15 +164,16 @@ class KernelRelease(object):
                     Exception("Generate quilt failed")
 
         except Exception as e:
-            self.logger.error(e)
+            self.logger.error(e, exc_info=True)
         else:
-            self.logger.info(format_h1("Successfully created quilt series", tab=2))
+            if self.cfg["quilt"]["enable"]:
+                self.logger.info(format_h1("Successfully created quilt series", tab=2))
 
         try:
             params = self.cfg["tar"]
             uparams = self.cfg["tar"]["upload-params"]
             if params["enable"]:
-                tarname = self.generate_tar_gz(params["outname"], params["branch"], params["skip_files"])
+                tarname = self.generate_tar_gz(params["outname"], str_none(params["branch"]), params["skip-files"])
 
                 if tarname is not None:
                     ret = self.git_upload(tarname, str_none(params["upload-dir"]), uparams["new-commit"],
@@ -186,9 +188,10 @@ class KernelRelease(object):
                     Exception("Create tar file failed")
 
         except Exception as e:
-            self.logger.error(e)
+            self.logger.error(e, exc_info=True)
         else:
-            self.logger.info(format_h1("Successfully created tar file", tab=2))
+            if self.cfg["tar"]["enable"]:
+                self.logger.info(format_h1("Successfully created tar file", tab=2))
 
         try:
             params = self.cfg["upload-kernel"]
@@ -204,9 +207,10 @@ class KernelRelease(object):
                     Exception("Upload kernel failed")
 
         except Exception as e:
-            self.logger.error(e)
+            self.logger.error(e, exc_info=True)
         else:
-            self.logger.info(format_h1("Successfully Uploaded Linux kernel", tab=2))
+            if self.cfg["upload-kernel"]["enable"]:
+                self.logger.info(format_h1("Successfully Uploaded Linux kernel", tab=2))
 
         return True
 
@@ -289,8 +293,6 @@ class KernelRelease(object):
 
         try:
             for remote in remote_list:
-                self.logger.info(remote)
-                #empty_folder(uploaddir)
                 repo_dir = src
                 if new_commit:
 
@@ -437,7 +439,7 @@ class KernelRelease(object):
         except Exception as e:
             if os.path.exists(patch_dir):
                 shutil.rmtree(patch_dir)
-            self.logger.error(e)
+            self.logger.error(e, exc_info=True)
             return None
         else:
             return patch_dir
@@ -481,12 +483,6 @@ class KernelRelease(object):
 
         # If the bundle file is already present, delete it.
         outfile = os.path.abspath(outfile)
-        if os.path.exists(outfile):
-            try:
-                pass
-                #os.remove(outfile)
-            except:
-                pass
 
         self.logger.info(format_h1("Generating git bundle", tab=2))
 
@@ -506,7 +502,7 @@ class KernelRelease(object):
                 if self.git.cmd('bundle', 'create', outfile, str(base) + '..' + str(head))[0] != 0:
                     raise Exception("Git bundle create command failed")
         except Exception as e:
-            self.logger.error(e)
+            self.logger.error(e, exc_info=True)
             return None
         else:
             return outfile
@@ -532,15 +528,18 @@ class KernelRelease(object):
                 self.logger.error("Git checkout branch %s failed in %s", branch, self.src)
                 return None
 
-        # Select the files you want to add into the tar file.
-        def valid_file(tarinfo):
-            for entry in skip_files:
-                if entry in tarinfo.name:
-                    return None
 
-            return tarinfo
+        tar_cmd = "tar"
+        if len(skip_files) > 0:
+            tar_cmd += ' --exclude={%s}' % ','.join(skip_files)
+        tar_cmd += ' -Jcf'
 
-        out = tarfile.open(outfile, mode='w:gz')
-        out.add(self.src, recursive=True, filter=valid_file)
-
-        return outfile
+        try:
+            ret = self.sh.cmd("%s %s %s" % (tar_cmd, os.path.abspath(outfile), os.path.abspath(self.src)), shell=True)
+            if ret[0] != 0:
+                Exception("Create tar command failed")
+        except Exception as e:
+            self.logger.error(e, exc_info=True)
+            return None
+        else:
+            return outfile
