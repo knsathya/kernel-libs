@@ -134,23 +134,6 @@ class KernelInteg(object):
 
         return False
 
-    def _is_valid_branch(self, remote, branch):
-        """
-        Check whether given branch is available in repo directory or not.
-        :param remote: git remote name
-        :param branch: git branch name.
-        :return: True if the branch name is valid, otherwise False.
-        """
-        if remote is not None and len(remote) > 0:
-            branch = remote + '/' + branch
-
-        if self.git.cmd('branch', '--list', branch)[1].strip() == branch.strip()
-            return True
-
-        self.logger.error("%s invalid branch name\n" % branch)
-
-        return False
-
     def __init__(self, repo_dir, cfg, repo_head=None, testcfg=None, emailcfg=None, releasecfg=None, logger=None):
         """
         Constructor of KernelInteg class.
@@ -166,8 +149,6 @@ class KernelInteg(object):
         self.logger = logger or logging.getLogger(__name__)
         self.schema = pkg_resources.resource_filename('klibs', 'schemas/integ-schema.json')
         self.emailschema = pkg_resources.resource_filename('klibs', 'schemas/email-schema.json')
-        self.releaseschema = pkg_resources.resource_filename('klibs', 'schemas/release-schema.json')
-        self.testschema = pkg_resources.resource_filename('klibs', 'schemas/test-schema.json')
 
         self.cfgobj = JSONParser(self.schema, cfg, extend_defaults=True, os_env=True, logger=self.logger)
         self.cfg = self.cfgobj.get_cfg()
@@ -548,6 +529,8 @@ class KernelInteg(object):
             rmtree(rr_cache_dir, ignore_errors=True)
             sh.cmd('mv', rr_cache_old_dir, rr_cache_dir)
 
+
+
     def _merge_branches(self, mode, merge_list, dest, options):
         """
         Merge the branches given in merge_list and create a output branch.
@@ -565,16 +548,13 @@ class KernelInteg(object):
 
         :return: True
         """
-        rr_cache_params = params.get('rr-cache', None)
-        if self.skip_rr_cache == False and params['use-rr-cache'] is True:
-            self._config_rr_cache(rr_cache_params)
         self._git("checkout", dest)
         if mode == "merge":
             for remote, branch in merge_list:
                 options = []
-                if params['no-ff'] is True:
+                if options['no-ff'] is True:
                     options.append('--no-ff')
-                if params['add-log'] is True:
+                if options['add-log'] is True:
                     options.append('--log')
                 if remote != '':
                     options.append(remote)
