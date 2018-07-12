@@ -1,0 +1,199 @@
+{
+    "$schema": "http://json-schema.org/draft-06/schema#",
+    "description": "Kernel test results schema",
+    "type": "object",
+    "properties": {
+        "kernel-params": {
+            "type": "object",
+            "properties": {
+                "head": {
+                    "description": "Head SHA ID of the branch",
+                    "type": "string",
+                    "default": ""
+                },
+                "base": {
+                    "description": "Base SHA ID of the branch",
+                    "type": "string",
+                    "default": ""
+                },
+                "branch": {
+                    "description": "Name of the kernel branch",
+                    "type": "string",
+                    "default": ""
+                },
+                "version": {
+                    "description": "Linux kernel version",
+                    "type": "string",
+                    "default": ""
+                }
+            }
+        },
+        "static-tests": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "arch_name"
+                ],
+                "properties": {
+                    "arch_name": {
+                        "description": "ARCH name used for compilation",
+                        "type": "string",
+                        "enum": [
+                            "x86_64",
+                            "i386",
+                            "arm64"
+                        ]
+                    },
+                    "allyesconfig": {
+                        "type": "object",
+                        "properties": {
+                            "compile-test": {
+                                "$ref": "#/definitions/test-status"
+                            },
+                            "sparse-test": {
+                                "$ref": "#/definitions/test-status"
+                            },
+                            "smatch-test": {
+                                "$ref": "#/definitions/test-status"
+                            }
+                        }
+                    },
+                    "allmodconfig": {
+                        "type": "object",
+                        "properties": {
+                            "compile-test": {
+                                "$ref": "#/definitions/test-status"
+                            },
+                            "sparse-test": {
+                                "$ref": "#/definitions/test-status"
+                            },
+                            "smatch-test": {
+                                "$ref": "#/definitions/test-status"
+                            }
+                        }
+                    },
+                    "allnoconfig": {
+                        "type": "object",
+                        "properties": {
+                            "compile-test": {
+                                "$ref": "#/definitions/test-status"
+                            },
+                            "sparse-test": {
+                                "$ref": "#/definitions/test-status"
+                            },
+                            "smatch-test": {
+                                "$ref": "#/definitions/test-status"
+                            }
+                        }
+                    },
+                    "defconfig": {
+                        "type": "object",
+                        "properties": {
+                            "compile-test": {
+                                "$ref": "#/definitions/test-status"
+                            },
+                            "sparse-test": {
+                                "$ref": "#/definitions/test-status"
+                            },
+                            "smatch-test": {
+                                "$ref": "#/definitions/test-status"
+                            }
+                        }
+                    },
+                    "randconfig": {
+                        "type": "object",
+                        "properties": {
+                            "compile-test": {
+                                "$ref": "#/definitions/test-status"
+                            },
+                            "sparse-test": {
+                                "$ref": "#/definitions/test-status"
+                            },
+                            "smatch-test": {
+                                "$ref": "#/definitions/test-status"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "checkpatch": {
+            "$ref": "#/definitions/test-status"
+        },
+        "bisect": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "description": "Kernel bisect check results",
+                    "type": "string",
+                    "enum": [
+                        "N/A",
+                        "Passed",
+                        "Failed"
+                    ],
+                    "default": "N/A"
+                },
+                "patch-list": {
+                    "description": "SHA ID of the failed patches",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": []
+                }
+            }
+        },
+        "aiaiai": {
+            "$ref": "#/definitions/test-status"
+        }
+    },
+
+    "default": {
+        "compile-test": [
+            {
+                "arch_name": "x86_64"
+            },
+            {
+                "arch_name": "i386"
+            },
+            {
+                "arch_name": "arm64"
+            }
+        ],
+        "checkpatch": {
+            "status": "N/A"
+        },
+        "aiaiai": {
+            "status": "N/A"
+        }
+    },
+    "definitions": {
+        "test-status": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "description": "Test result status",
+                    "type": "string",
+                    "enum": [
+                        "N/A",
+                        "Passed",
+                        "Failed"
+                    ],
+                    "default": "N/A"
+                },
+                "warning_count": {
+                    "description": "Total number of warnings",
+                    "type": "integer",
+                    "default": 0
+                },
+                "error_count": {
+                    "description": "Total number of warnings",
+                    "type": "integer",
+                    "default": 0
+                }
+            }
+
+        }
+    }
+}

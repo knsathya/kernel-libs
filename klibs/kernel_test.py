@@ -22,13 +22,14 @@ import logging, logging.config
 import collections
 import argparse
 import re
+import pkg_resources
 
-from lib.json_parser import JSONParser
-from lib.build_kernel import BuildKernel, is_valid_kernel
-from lib.decorators import format_h1
-from lib.pyshell import PyShell, GitShell
+from jsonparser import JSONParser
+from build_kernel import BuildKernel, is_valid_kernel
+from decorators import format_h1
+from pyshell import PyShell, GitShell
 
-RESULT_SCHEMA = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'schema/kernel-test-results-schema.json')
+RESULT_SCHEMA = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'schema/kernel-results-schema.json')
 TEST_SCHEMA = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'schema/kernel-test-schema.json')
 TEST_CONFIG = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config/kernel-test-sample.json')
 
@@ -40,6 +41,7 @@ supported_archs = ['x86_64', 'i386', 'arm64']
 class KernelResults(object):
     def __init__(self, src=None, old_cfg=None, logger=None):
         self.logger = logger or logging.getLogger(__name__)
+        self.schema = pkg_resources.resource_filename('klibs', 'schemas/results-schema.json')
         self.src = src
         self.results = {}
         self.kernel_params = {}
@@ -241,7 +243,7 @@ class KernelResults(object):
 
 class KernelTest(object):
 
-    def __init__(self, src, out=None, branch=None, head=None, base=None, res_cfg=None, logger=None):
+    def __init__(self, src, cfg=None, out=None, branch=None, head=None, base=None, res_cfg=None, logger=None):
         self.logger = logger or logging.getLogger(__name__)
         self.src = src
         self.out = os.path.join(self.src, 'out') if out is None else os.path.absapth(out)
@@ -249,7 +251,9 @@ class KernelTest(object):
         self.head = head
         self.base = base
         self.valid_git = False
+        self.schema = pkg_resources.resource_filename('klibs', 'schemas/test-schema.json')
         self.cfg = None
+        self.cfgobj = None
         self.resobj = KernelResults(self.src, old_cfg=res_cfg, logger=self.logger)
         self.git = GitShell(wd=self.src, logger=logger)
         self.sh = PyShell(wd=self.src, logger=logger)
@@ -281,6 +285,10 @@ class KernelTest(object):
                 self.base = self.git.base_sha()
 
             self.resobj.update_kernel_params(base=self.base, head=self.head, branch=self.branch)
+
+        if cfg is not None:
+            self.cfgobj = JSONParser(self.schema, cfg, extend_defaults=True, os_env=True, logger=logger)
+            self.cfg = self.cfgobj.get_cfg()
 
     def run_test(self, cfg):
         self.logger.info(format_h1("Running kernel tests from json", tab=2))
