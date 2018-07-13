@@ -2,7 +2,119 @@
     "$schema": "http://json-schema.org/draft-06/schema#",
     "description": "Kernel test schema",
     "type": "object",
-    "$ref": "#/definitions/test-params",
+    "properties": {
+        "static-config": {
+            "type": "object",
+            "properties": {
+                "enable": {
+                    "description": "Enable static analysis",
+                    "type": "boolean",
+                    "default": false
+                },
+                "test-list": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "arch_name"
+                        ],
+                        "properties": {
+                            "arch_name": {
+                                "description": "ARCH name used for compilation",
+                                "enum": [
+                                    "x86_64",
+                                    "i386",
+                                    "arm64"
+                                ]
+                            },
+                            "compiler_options": {
+                                "description": "Compiler Options",
+                                "type": "object",
+                                "properties": {
+                                    "CC": {
+                                        "type": "string",
+                                        "default": ""
+                                    },
+                                    "cflags": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "default": []
+                                    }
+                                },
+                                "default": {
+                                    "CC": "",
+                                    "cflags": []
+                                }
+                            },
+                            "allyesconfig": {
+                                "$ref": "#/definitions/static-tests"
+                            },
+                            "allmodconfig": {
+                                "$ref": "#/definitions/static-tests"
+                            },
+                            "allnoconfig": {
+                                "$ref": "#/definitions/static-tests"
+                            },
+                            "defconfig": {
+                                "$ref": "#/definitions/static-tests"
+                            },
+                            "randconfig": {
+                                "$ref": "#/definitions/static-tests"
+                            },
+                            "customconfigs": {
+                                "type": "array",
+                                "items": {
+                                    "allOf": [
+                                        {
+                                            "$ref": "#/definitions/static-tests"
+                                        },
+                                        {
+                                            "properties": {
+                                                "name": {
+                                                    "type": "string",
+                                                    "description": "Name of the custom config"
+                                                },
+                                                "source": {
+                                                    "type": "string",
+                                                    "description": "Custom config source file"
+                                                },
+                                                "defaction": {
+                                                    "type": "string",
+                                                    "enum": [
+                                                        "oldconfig",
+                                                        "olddefconfig"
+                                                    ],
+                                                    "default": "olddefconfig"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                },
+                                "default": []
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "checkpatch-config": {
+            "type": "object",
+            "properties": {
+                "enable": {
+                    "description": "Enable checkpatch static analysis",
+                    "type": "boolean",
+                    "default": false
+                },
+                "source": {
+                    "description": "Checkpatch script path",
+                    "type": "string",
+                    "default": "scripts/checkpatch.pl"
+                }
+            }
+        }
+    },
     "default": {
         "static-config": {
             "enable": false,
@@ -20,260 +132,32 @@
         },
         "checkpatch-config": {
             "enable": false
-        },
-        "aiaiai-config": {
-            "enable": false
         }
     },
     "definitions": {
-        "test-params": {
+        "static-tests": {
             "type": "object",
             "properties": {
-                "static-config": {
-                    "type": "object",
-                    "properties": {
-                        "enable": {
-                            "description": "Enable static analysis",
-                            "type": "boolean",
-                            "default": false
-                        },
-                        "test-list": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "required": [
-                                    "arch_name"
-                                ],
-                                "properties": {
-                                    "arch_name": {
-                                        "description": "ARCH name used for compilation",
-                                        "enum": [
-                                            "x86_64",
-                                            "i386",
-                                            "arm64"
-                                        ]
-                                    },
-                                    "compiler_options": {
-                                        "description": "Compiler Options",
-                                        "type": "object",
-                                        "properties": {
-                                            "CC": {
-                                                "type": "string",
-                                                "default": ""
-                                            },
-                                            "cflags": {
-                                                "type": "array",
-                                                "items": {
-                                                    "type": "string"
-                                                },
-                                                "default": []
-                                            }
-                                        },
-                                        "default": {
-                                            "CC": "",
-                                            "cflags": []
-                                        }
-                                    },
-                                    "allyesconfig": {
-                                        "type": "object",
-                                        "properties": {
-                                            "compile-test": {
-                                                "description": "Enable allyesconfig compilation",
-                                                "type": "boolean",
-                                                "default": false
-                                            },
-                                            "smatch-test": {
-                                                "description": "Enable allyesconfig smatch test",
-                                                "type": "boolean",
-                                                "default": false
-                                            },
-                                            "sparse-test": {
-                                                "description": "Enable allyesconfig sparse test",
-                                                "type": "boolean",
-                                                "default": false
-                                            }
-                                        },
-                                        "default": {
-                                            "compile-test": false,
-                                            "smatch-test": false,
-                                            "sparse-test": false
-                                        }
-                                    },
-                                    "allmodconfig": {
-                                        "type": "object",
-                                        "properties": {
-                                            "compile-test": {
-                                                "description": "Enable allmodconfig compilation",
-                                                "type": "boolean",
-                                                "default": false
-                                            },
-                                            "smatch-test": {
-                                                "description": "Enable allmodconfig smatch test",
-                                                "type": "boolean",
-                                                "default": false
-                                            },
-                                            "sparse-test": {
-                                                "description": "Enable allmodconfig sparse test",
-                                                "type": "boolean",
-                                                "default": false
-                                            }
-                                        },
-                                        "default": {
-                                            "compile-test": false,
-                                            "smatch-test": false,
-                                            "sparse-test": false
-                                        }
-                                    },
-                                    "allnoconfig": {
-                                        "type": "object",
-                                        "properties": {
-                                            "compile-test": {
-                                                "description": "Enable allnoconfig compilation",
-                                                "type": "boolean",
-                                                "default": false
-                                            },
-                                            "smatch-test": {
-                                                "description": "Enable allnoconfig smatch test",
-                                                "type": "boolean",
-                                                "default": false
-                                            },
-                                            "sparse-test": {
-                                                "description": "Enable allnoconfig sparse test",
-                                                "type": "boolean",
-                                                "default": false
-                                            }
-                                        },
-                                        "default": {
-                                            "compile-test": false,
-                                            "smatch-test": false,
-                                            "sparse-test": false
-                                        }
-                                    },
-                                    "defconfig": {
-                                        "type": "object",
-                                        "properties": {
-                                            "compile-test": {
-                                                "description": "Enable defconfig compilation",
-                                                "type": "boolean",
-                                                "default": false
-                                            },
-                                            "smatch-test": {
-                                                "description": "Enable defconfig smatch test",
-                                                "type": "boolean",
-                                                "default": false
-                                            },
-                                            "sparse-test": {
-                                                "description": "Enable defconfig sparse test",
-                                                "type": "boolean",
-                                                "default": false
-                                            }
-                                        },
-                                        "default": {
-                                            "compile-test": false,
-                                            "smatch-test": false,
-                                            "sparse-test": false
-                                        }
-                                    },
-                                    "randconfig": {
-                                        "type": "object",
-                                        "properties": {
-                                            "compile-test": {
-                                                "description": "Enable randconfig compilation",
-                                                "type": "boolean",
-                                                "default": false
-                                            },
-                                            "smatch-test": {
-                                                "description": "Enable randconfig smatch test",
-                                                "type": "boolean",
-                                                "default": false
-                                            },
-                                            "sparse-test": {
-                                                "description": "Enable randconfig sparse test",
-                                                "type": "boolean",
-                                                "default": false
-                                            }
-                                        },
-                                        "default": {
-                                            "compile-test": false,
-                                            "smatch-test": false,
-                                            "sparse-test": false
-                                        }
-                                    },
-                                    "customconfigs": {
-                                        "type": "array",
-                                        "items": {
-                                            "type": "object",
-                                            "properties": {
-                                                "name": {
-                                                    "type": "string",
-                                                    "description": "Name of the custom config"
-                                                },
-                                                "source": {
-                                                    "type": "string",
-                                                    "description": "Custom config source file"
-                                                },
-                                                "defaction": {
-                                                    "type": "string",
-                                                    "enum": [
-                                                        "oldconfig",
-                                                        "olddefconfig"
-                                                    ],
-                                                    "default": "olddefconfig"
-                                                },
-                                                "compile-test": {
-                                                    "description": "Enable customconfig compilation",
-                                                    "type": "boolean",
-                                                    "default": false
-                                                },
-                                                "smatch-test": {
-                                                    "description": "Enable customconfig smatch test",
-                                                    "type": "boolean",
-                                                    "default": false
-                                                },
-                                                "sparse-test": {
-                                                    "description": "Enable customconfig sparse test",
-                                                    "type": "boolean",
-                                                    "default": false
-                                                }
-                                            }
-                                        },
-                                        "default":[]
-                                    }
-                                }
-                            }
-                        }
-                    }
+                "compile-test": {
+                    "description": "Enable allyesconfig compilation",
+                    "type": "boolean",
+                    "default": false
                 },
-                "checkpatch-config": {
-                    "type": "object",
-                    "properties": {
-                        "enable": {
-                            "description": "Enable checkpatch static analysis",
-                            "type": "boolean",
-                            "default": false
-                        },
-                        "source": {
-                            "description": "Checkpatch script path",
-                            "type": "string",
-                            "default": "scripts/checkpatch.pl"
-                        }
-                    }
+                "smatch-test": {
+                    "description": "Enable allyesconfig smatch test",
+                    "type": "boolean",
+                    "default": false
                 },
-                "aiaiai-config": {
-                    "type": "object",
-                    "properties": {
-                        "enable": {
-                            "description": "Enable aiaiai static analysis",
-                            "type": "boolean",
-                            "default": false
-                        },
-                        "source": {
-                            "description": "AiAiAi tool source link",
-                            "type": "string",
-                            "default": ""
-                        }
-                    }
+                "sparse-test": {
+                    "description": "Enable allyesconfig sparse test",
+                    "type": "boolean",
+                    "default": false
                 }
+            },
+            "default": {
+                "compile-test": false,
+                "smatch-test": false,
+                "sparse-test": false
             }
         }
     }

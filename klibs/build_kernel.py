@@ -342,7 +342,9 @@ class BuildKernel(object):
 
         return ret, out, err
 
-    def copy_newconfig(self, cfg, flags=[], log=False, dryrun=False):
+    def copy_newconfig(self, cfg):
+        if not os.path.exists(cfg):
+            return -1, '', 'Config %s does not exists' % cfg
         copy(cfg, self.cfg)
 
     def make_kernel(self, flags=[], log=False, dryrun=False):

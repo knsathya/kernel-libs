@@ -19,3 +19,4 @@
 from build_kernel import BuildKernel, KernelConfig, is_valid_kernel, get_kernel_version
 from send_email import Email
 from kernel_release import KernelRelease
+from kernel_test import KernelTest, KernelResults, supported_configs, supported_archs, supported_oldconfigs

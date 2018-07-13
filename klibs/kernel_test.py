@@ -36,6 +36,7 @@ TEST_CONFIG = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config/
 CHECK_PATCH_SCRIPT='scripts/checkpatch.pl'
 
 supported_configs = ['allyesconfig', 'allmodconfig', 'allnoconfig', 'defconfig', 'randconfig']
+supported_oldconfigs = ['olddefconfig', 'oldconfig']
 supported_archs = ['x86_64', 'i386', 'arm64']
 
 class KernelResults(object):
@@ -48,7 +49,7 @@ class KernelResults(object):
         self.static_results = []
         self.checkpatch_results = {}
         self.bisect_results = {}
-        self.aiaiai_results = {}
+        self.custom_configs = []
 
         res_obj = {}
 
@@ -58,24 +59,7 @@ class KernelResults(object):
         self.kernel_params["version"] = "Linux"
 
         for arch in supported_archs:
-            static_obj = {}
-            static_obj["arch_name"] = arch
-            for config in supported_configs:
-                static_obj[config] = {}
-                static_obj[config]["compile-test"] = {}
-                static_obj[config]["compile-test"]["status"] = "N/A"
-                static_obj[config]["compile-test"]["warning_count"] = 0
-                static_obj[config]["compile-test"]["error_count"] = 0
-                static_obj[config]["sparse-test"] = {}
-                static_obj[config]["sparse-test"]["status"] = "N/A"
-                static_obj[config]["sparse-test"]["warning_count"] = 0
-                static_obj[config]["sparse-test"]["error_count"] = 0
-                static_obj[config]["smatch-test"] = {}
-                static_obj[config]["smatch-test"]["status"] = "N/A"
-                static_obj[config]["smatch-test"]["warning_count"] = 0
-                static_obj[config]["smatch-test"]["error_count"] = 0
-
-            self.static_results.append(static_obj)
+            self.add_arch(arch)
 
         self.checkpatch_results["status"] = "N/A"
         self.checkpatch_results["warning_count"] = 0
@@ -84,25 +68,66 @@ class KernelResults(object):
         self.bisect_results["status"] = "N/A"
         self.bisect_results["patch-list"] = []
 
-        self.aiaiai_results["status"] = "N/A"
-        self.aiaiai_results["warning_count"] = 0
-        self.aiaiai_results["error_count"] = 0
-
         res_obj["kernel-params"] = self.kernel_params
         res_obj["static-test"] = self.static_results
         res_obj["checkpatch"] = self.checkpatch_results
         res_obj["bisect"] = self.bisect_results
-        res_obj["aiaiai"] = self.aiaiai_results
 
-        self.cfgobj = JSONParser(RESULT_SCHEMA, res_obj, extend_defaults=True)
+        self.cfgobj = JSONParser(self.schema, res_obj, extend_defaults=True)
         self.results = self.cfgobj.get_cfg()
 
         if old_cfg is not None:
             self.update_results(old_cfg)
 
+    def get_static_obj(self, arch):
+        for index, obj in enumerate(self.static_results):
+            if isinstance(obj, dict) and obj.has_key("arch_name") and obj["arch_name"] == arch:
+                return index, obj
+
+        return -1, None
+
+    def add_arch(self, arch):
+        if arch is None or len(arch) == 0:
+            return False
+
+        if self.get_static_obj(arch)[1] is None:
+            obj = {}
+            obj["arch_name"] = arch
+            self.static_results.append(obj)
+
+            for config in supported_configs + self.custom_configs:
+                self.add_config(config)
+
+        return True
+
+    def add_config(self, name):
+        if name is None or len(name) == 0:
+            return False
+
+        for obj in self.static_results:
+            if not obj.has_key(name):
+                obj[name] = {}
+                obj[name]["compile-test"] = {}
+                obj[name]["compile-test"]["status"] = "N/A"
+                obj[name]["compile-test"]["warning_count"] = 0
+                obj[name]["compile-test"]["error_count"] = 0
+                obj[name]["sparse-test"] = {}
+                obj[name]["sparse-test"]["status"] = "N/A"
+                obj[name]["sparse-test"]["warning_count"] = 0
+                obj[name]["sparse-test"]["error_count"] = 0
+                obj[name]["smatch-test"] = {}
+                obj[name]["smatch-test"]["status"] = "N/A"
+                obj[name]["smatch-test"]["warning_count"] = 0
+                obj[name]["smatch-test"]["error_count"] = 0
+
+        if name not in supported_configs and name not in self.custom_configs:
+            self.custom_configs.append(name)
+
+        return True
+
     def update_results(self, new_cfg):
         try:
-            new_results = JSONParser(RESULT_SCHEMA, new_cfg, extend_defaults=True).get_cfg()
+            new_results = JSONParser(self.schema, new_cfg, extend_defaults=True).get_cfg()
             param1 = self.results["kernel-params"]
             param2 = new_results["kernel-params"]
             for field in ["head", "base", "branch", "version"]:
@@ -129,13 +154,6 @@ class KernelResults(object):
 
     def update_smatch_test_results(self, arch, config, status, warning_count=0, error_count=0):
         self._update_static_test_results("smatch-test", arch, config, status, warning_count, error_count)
-
-    def update_aiaiai_results(self, status, warning_count=None, error_count=None):
-        self.results["aiaiai"]["status"] = "Passed" if status else "Failed"
-        if warning_count is not None:
-            self.results["aiaiai"]["warning_count"] = warning_count
-        if error_count is not None:
-            self.results["aiaiai"]["error_count"] = warning_count
 
     def update_checkpatch_results(self, status, warning_count=None, error_count=None):
         self.results["checkpatch"]["status"] = "Passed" if status else "Failed"
@@ -166,11 +184,11 @@ class KernelResults(object):
         return out + '\n'
 
     def static_test_results(self):
-        width = len(max(supported_configs, key=len)) * 2
+        width = len(max(supported_configs + self.custom_configs, key=len)) * 2
         out = 'Static Test Results:\n'
         for obj in self.results["static-test"]:
             out += '\t%s results:\n' % obj['arch_name']
-            for config in supported_configs:
+            for config in supported_configs + self.custom_configs:
                 out += '\t\t%s results:\n' % config
                 for type in ["compile-test", "sparse-test", "smatch-test"]:
                     out += '\t\t\t%s results:\n' % type
@@ -194,14 +212,6 @@ class KernelResults(object):
 
         return out + '\n'
 
-    def aiaiai_test_results(self):
-        out = 'AiAiAi Test Results:\n'
-        out += '\tstatus       : %s\n' % self.aiaiai_results["status"]
-        out += '\twarning_count: %s\n' % self.aiaiai_results["warning_count"]
-        out += '\terror_count  : %s\n' % self.aiaiai_results["error_count"]
-
-        return out + '\n'
-
     def get_test_results(self, test_type="compile"):
         out = ''
         out += self.kernel_info()
@@ -209,12 +219,9 @@ class KernelResults(object):
             out += self.static_test_results()
         elif test_type == "checkpatch":
             out += self.checkpatch_test_results()
-        elif test_type == "aiaiai":
-            out += self.aiaiai_test_results()
         elif test_type == "all":
             out += self.static_test_results()
             out += self.checkpatch_test_results()
-            out += self.aiaiai_test_results()
 
         return out
 
@@ -243,11 +250,14 @@ class KernelResults(object):
 
 class KernelTest(object):
 
-    def __init__(self, src, cfg=None, out=None, branch=None, head=None, base=None, res_cfg=None, logger=None):
+    def __init__(self, src, cfg=None, out=None, rname=None, rurl=None, branch=None, head=None, base=None,
+                 res_cfg=None, logger=None):
         self.logger = logger or logging.getLogger(__name__)
         self.src = src
         self.out = os.path.join(self.src, 'out') if out is None else os.path.absapth(out)
         self.branch = branch
+        self.rname = rname
+        self.rurl = rurl
         self.head = head
         self.base = base
         self.valid_git = False
@@ -258,7 +268,7 @@ class KernelTest(object):
         self.git = GitShell(wd=self.src, logger=logger)
         self.sh = PyShell(wd=self.src, logger=logger)
         self.checkpatch_source = CHECK_PATCH_SCRIPT
-        self.aiaiai_source = ""
+        self.custom_configs = []
 
         if not is_valid_kernel(src, logger):
             return
@@ -271,7 +281,12 @@ class KernelTest(object):
         self.valid_git = True if self.git.valid() else False
 
         if self.valid_git:
-            if self.branch is not None:
+            if self.rname is not None and len(self.rname) > 0:
+                self.git.add_remote(rname, rurl)
+                self.git.cmd('fetch %s' % rname)
+                self.branch = self.rname + '/' + self.branch
+
+            if self.branch is not None and len(self.branch) > 0:
                 if self.git.cmd('checkout', branch)[0] != 0:
                     self.logger.error("Git checkout command failed in %s", self.src)
                     return
@@ -290,65 +305,92 @@ class KernelTest(object):
             self.cfgobj = JSONParser(self.schema, cfg, extend_defaults=True, os_env=True, logger=logger)
             self.cfg = self.cfgobj.get_cfg()
 
-    def run_test(self, cfg):
+    def auto_test(self):
         self.logger.info(format_h1("Running kernel tests from json", tab=2))
 
         status = True
 
-        self.cfg = JSONParser(TEST_SCHEMA, cfg, extend_defaults=True).get_cfg() if cfg is not None else None
+        static_config = self.cfg.get("static-config", None)
 
-        if self.cfg is None:
-            self.logger.warning("Invalid JSON config file")
-            return False
+        def static_test(obj, cobj, config):
+            status = True
 
-        self.logger.info(self.cfg.keys())
+            if cobj["compile-test"]:
+                current_status = self.compile(obj["arch_name"], config, obj["compiler_options"]["CC"],
+                                              obj["compiler_options"]["cflags"],
+                                              cobj.get('name', None), cobj.get('source', None))
+                if current_status is False:
+                    self.logger.error("Compilation of arch:%s config:%s failed\n" % (obj["arch_name"],
+                                                                                     cobj.get('name', config)))
 
-        compile_config = self.cfg.get("compile-config", None)
+                status &= current_status
 
-        self.logger.info(compile_config)
+            if obj[config]["sparse-test"]:
+                current_status = self.sparse(obj["arch_name"], config, obj["compiler_options"]["CC"],
+                                             obj["compiler_options"]["cflags"],
+                                             cobj.get('name', None), cobj.get('source', None))
+                if current_status is False:
+                    self.logger.error("Sparse test of arch:%s config:%s failed\n" % (obj["arch_name"],
+                                                                                     cobj.get('name', config)))
 
-        if compile_config is not None and compile_config["enable"] is True:
+                status &= current_status
 
-            for obj in compile_config["test-list"]:
-                def config_enabled(config):
-                    return obj[config]
+            return status
 
-                for config in filter(config_enabled, supported_configs):
-                    current_status = self.compile(obj["arch_name"], config,
-                                                  obj["compiler_options"]["CC"],
-                                                  obj["compiler_options"]["cflags"])
-                    if current_status is False:
-                        self.logger.error("Compilation of arch:%s config:%s failed\n" % (obj["arch_name"], config))
 
-                    status &= current_status
+        if static_config is not None and static_config["enable"] is True:
+            # Compile standard configs
+            for obj in static_config["test-list"]:
+
+                for config in supported_configs:
+                    status &= static_test(obj, obj[config], config)
+
+                # Compile custom configs
+                for cobj in obj["customconfigs"]:
+                    if cobj['name'] not in self.custom_configs:
+                        self.custom_configs.append(cobj['name'])
+
+                    self.resobj.add_config(cobj['name'])
+
+                    status &= static_test(obj, cobj, cobj['defaction'])
 
         checkpatch_config = self.cfg.get("checkpatch-config", None)
-
-        self.logger.info(checkpatch_config)
 
         if checkpatch_config is not None and checkpatch_config["enable"] is True:
             if len(checkpatch_config["source"]) > 0:
                 self.checkpatch_source = checkpatch_config["source"]
             status &= self.run_checkpatch()[0]
 
-        aiaiai_config = self.cfg.get("aiaiai-config", None)
-
-        self.logger.info(aiaiai_config)
-
-        if aiaiai_config is not None and aiaiai_config["enable"] is True:
-            if len(aiaiai_config["source"]) > 0:
-                self.aiaiai_source = aiaiai_config["source"]
-            status &= self.run_aiaiai()
-
         return status
 
-    def compile(self, arch='', config='', cc='', cflags=[]):
-        if arch not in supported_archs or config not in supported_configs:
+    def compile(self, arch='', config='', cc='', cflags=[], name='', cfg=None):
+
+        custom_config = False
+
+        if arch not in supported_archs:
             self.logger.error("Invalid arch/config %s/%s" % (arch, config))
             return False
 
-        kobj = BuildKernel(src_dir=self.src, out_dir=os.path.join(self.out, arch, config),
-                           arch=arch, cc=cc, cflags=cflags, logger=self.logger)
+        if config not in supported_configs:
+            if cfg is None or len(cfg) == 0 or name is None or len(name) == 0:
+                self.logger.error("Invalid arch/config %s/%s" % (arch, config))
+                return False
+            else:
+                if name not in self.custom_configs:
+                    self.custom_configs.append(name)
+
+                self.resobj.add_config(name)
+
+                custom_config = True
+
+        out_dir = os.path.join(self.out, arch, name if custom_config else config)
+
+        kobj = BuildKernel(src_dir=self.src, out_dir=out_dir, arch=arch, cc=cc, cflags=cflags,logger=self.logger)
+
+        # If custom config source is given, use it.
+        if custom_config:
+            kobj.copy_newconfig(cfg)
+
         getattr(kobj, 'make_' + config)()
 
         ret, out, err = kobj.make_kernel()
@@ -358,15 +400,14 @@ class KernelTest(object):
 
         status = True if ret == 0 else False
 
-        self.resobj.update_compile_test_results(arch, config, status, warning_count, error_count)
+        if name is None or len(name) == 0:
+            name =  config
+
+        self.resobj.update_compile_test_results(arch, name, status, warning_count, error_count)
 
         return status
 
-    def sparse(self, arch='', config='', cc='', cflags=[]):
-
-        if arch not in supported_archs or config not in supported_configs:
-            self.logger.error("Invalid arch/config %s/%s" % (arch, config))
-            return False
+    def sparse(self, arch='', config='', cc='', cflags=[], name='', cfg=None):
 
         sparse_flags = []
 
@@ -376,26 +417,9 @@ class KernelTest(object):
         if len(filter(lambda x: True if re.match(r'CHECK=(.*)?sparse(.*)?', x) else False, cflags)) == 0:
             sparse_flags.append('CHECK="/usr/bin/sparse"')
 
-        kobj = BuildKernel(src_dir=self.src, out_dir=os.path.join(self.out, arch, config),
-                           arch=arch, cc=cc, cflags=sparse_flags + cflags, logger=self.logger)
-        getattr(kobj, 'make_' + config)()
+        return self.compile(arch, config, cc, sparse_flags + cflags, name, cfg)
 
-        ret, out, err = kobj.make_kernel()
-
-        warning_count =len(filter(lambda x: True if "warning:" in x else False, out.split('\n') + err.split('\n')))
-        error_count = len(filter(lambda x: True if "error:" in x else False, out.split('\n') + err.split('\n')))
-
-        status = True if ret == 0 else False
-
-        self.resobj.update_sparse_test_results(arch, config, status, warning_count, error_count)
-
-        return status
-
-    def smatch(self, arch='', config='', cc='', cflags=[]):
-
-        if arch not in supported_archs or config not in supported_configs:
-            self.logger.error("Invalid arch/config %s/%s" % (arch, config))
-            return False
+    def smatch(self, arch='', config='', cc='', cflags=[], name='', cfg=None):
 
         smatch_flags = []
 
@@ -405,53 +429,35 @@ class KernelTest(object):
         if len(filter(lambda x: True if re.match(r'CHECK=(.*)?smatch(.*)?', x) else False, cflags)) == 0:
             smatch_flags.append('CHECK="smatch -p=kernel"')
 
-        kobj = BuildKernel(src_dir=self.src, out_dir=os.path.join(self.out, arch, config),
-                           arch=arch, cc=cc, cflags=smatch_flags + cflags, logger=self.logger)
-        getattr(kobj, 'make_' + config)()
-
-        ret, out, err = kobj.make_kernel()
-
-        warning_count =len(filter(lambda x: True if "warning:" in x else False, out.split('\n')))
-        error_count = len(filter(lambda x: True if "error:" in x else False, out.split('\n')))
-
-        status = True if ret == 0 else False
-
-        self.resobj.update_smatch_test_results(arch, config, status, warning_count, error_count)
-
-        return status
+        return self.compile(arch, config, cc, smatch_flags + cflags, name, cfg)
 
 
-    def compile_list(self, arch='', config_list=[], cc='', cflags=[]):
+    def compile_list(self, arch='', config_list=[], cc='', cflags=[], name='', cfg=None):
         self.logger.info(format_h1("Running compile tests", tab=2))
         result = []
 
         for config in config_list:
-            result.append(self.compile(arch, config, cc, cflags))
+            result.append(self.compile(arch, config, cc, cflags, name, cfg))
 
         return result
 
-    def sparse_list(self, arch='', config_list=[], cc='', cflags=[]):
+    def sparse_list(self, arch='', config_list=[], cc='', cflags=[], name='', cfg=None):
         self.logger.info(format_h1("Running sparse tests", tab=2))
         result = []
 
         for config in config_list:
-            result.append(self.sparse(arch, config, cc, cflags))
+            result.append(self.sparse(arch, config, cc, cflags, name, cfg))
 
         return result
 
-    def smatch_list(self, arch='', config_list=[], cc='', cflags=[]):
+    def smatch_list(self, arch='', config_list=[], cc='', cflags=[], name='', cfg=None):
         self.logger.info(format_h1("Running smatch tests", tab=2))
         result = []
 
         for config in config_list:
-            result.append(self.smatch(arch, config, cc, cflags))
+            result.append(self.smatch(arch, config, cc, cflags, name, cfg))
 
         return result
-
-    def run_aiaiai(self):
-        self.logger.info(format_h1("Run AiAiAi Script", tab=2))
-
-        return True
 
     def run_sparse(self):
         self.logger.info(format_h1("Run sparse Script", tab=2))
@@ -503,10 +509,10 @@ class KernelTest(object):
                 prev_index = index
         except Exception as e:
             self.logger.error(e)
-            return False, err_count, warning_count
+            return False
         else:
             self.resobj.update_checkpatch_results(True, err_count, warning_count)
-            return True, err_count, warning_count
+            return True
 
     def print_results(self, test_type='all'):
         self.resobj.print_test_results(test_type=test_type)
@@ -577,9 +583,6 @@ def add_cli_options(parser):
     checkpatch_parser = subparsers.add_parser('checkpatch', help='Run checkpatch test')
     checkpatch_parser.set_defaults(which='use_checkpatch')
 
-    aiaiai_parser = subparsers.add_parser('aiaiai', help='Run AiAiAi test')
-    aiaiai_parser.set_defaults(which='use_aiaiai')
-
     json_parser = subparsers.add_parser('use_json', help='Run json test')
     json_parser.set_defaults(which='use_json')
     json_parser.add_argument('config', action='store', default=TEST_CONFIG, help='Kernel test config json file')
@@ -640,8 +643,6 @@ if __name__ == "__main__":
             obj.smatch_list(args.arch, args.config_list, args.cc, args.cflags)
         if args.which == 'use_checkpatch':
             obj.run_checkpatch()
-        if args.which == 'use_aiaiai':
-            obj.run_aiaiai()
         if args.which == 'use_json':
             obj.run_test(cfg=os.path.abspath(args.config))
 

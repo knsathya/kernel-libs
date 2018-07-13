@@ -143,12 +143,8 @@
                     "default": []
                 }
             }
-        },
-        "aiaiai": {
-            "$ref": "#/definitions/test-status"
         }
     },
-
     "default": {
         "compile-test": [
             {
@@ -162,9 +158,6 @@
             }
         ],
         "checkpatch": {
-            "status": "N/A"
-        },
-        "aiaiai": {
             "status": "N/A"
         }
     },
