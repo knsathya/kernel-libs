@@ -134,7 +134,7 @@ class KernelInteg(object):
 
         return False
 
-    def __init__(self, repo_dir, cfg, repo_head=None, testcfg=None, emailcfg=None, releasecfg=None, logger=None):
+    def __init__(self, repo_dir, cfg, repo_head=None, emailcfg=None, logger=None):
         """
         Constructor of KernelInteg class.
         :rtype: object
@@ -158,9 +158,6 @@ class KernelInteg(object):
             self.emailobj = Email(emailcfg, self.logger)
         else:
             self.emailobj = None
-
-        self.releasecfg = releasecfg
-        self.testcfg = testcfg
 
         self.remote_list = self.cfg['remote-list']
         self.repos = self.cfg['repo-list']
@@ -548,23 +545,40 @@ class KernelInteg(object):
 
         :return: True
         """
-        self._git("checkout", dest)
-        if mode == "merge":
-            for remote, branch in merge_list:
-                options = []
-                if options['no-ff'] is True:
-                    options.append('--no-ff')
-                if options['add-log'] is True:
-                    options.append('--log')
-                if remote != '':
-                    options.append(remote)
-                    options = ["pull"] + options
-                else:
-                    options = ["merge"] + options
-                options.append(branch)
 
-                self._git_merge(*options, send_email=True, subject_prefix=dest, subject='Merge Failed',
-                                auto_merge=params['use-rr-cache'])
+        def merge_cmd(remote=None, rbranch=None, no_ff=False, add_log=False, abort=False):
+            options = []
+
+            if no_ff:
+                options.append('--no-ff')
+            if add_log:
+                options.append('--log')
+
+            if abort is True:
+                return ' '.join('merge', '--abort')
+
+            if remote is not None and len(remote) > 0:
+                return ' '.join('pull', ' '.join(options), rbranch)
+            else:
+                return ' '.join('merge', ' '.join(options), rbranch)
+
+
+        for remote, branch in merge_list:
+            ret = 0, '', ''
+            if mode == "merge":
+                self.git.cmd("checkout", dest)
+                ret = self.git.cmd(merge_cmd(remote, branch, options['no-ff'], options['add-log']))
+            elif mode == "rebase":
+                self.git.cmd("checkout", remote + '/' + branch if remote !='' else branch)
+                ret = self.git.cmd("rebase", dest)
+            elif mode == "replace":
+                ret = self.git.cmd("checkout", remote + '/' + branch if remote != '' else branch)
+
+            if self.git.inprogress() or ret != 0:
+                if self.cfg[""]
+                self.emailobj
+
+
         elif mode == "rebase":
             for remote, branch in merge_list:
                 if remote != '':
