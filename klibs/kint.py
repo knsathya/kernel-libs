@@ -26,114 +26,10 @@ from shutil import rmtree, move
 from jsonparser import JSONParser
 from decorators import format_h1
 from pyshell import GitShell, PyShell
-from kernel_test import KernelTest
-from kernel_release import KernelRelease
 from send_email import Email
 
 
-set_val = lambda k, v: v if k is None else k
-
-set_list_val = lambda k, v: k if len(k) > 0 else v
-
 class KernelInteg(object):
-
-    def _git(self, *args, **kwargs):
-        # type: (object, object) -> object
-        """
-        Execute the given git command using subprocess and return command output.
-        :rtype: str
-        :param args: List of git command arguments.
-        :param kwargs:
-                      silent - Set True to suppress any exceptions.
-                      wd - Set work directory for given command.
-        :return: Command output
-        """
-        silent = kwargs.pop('silent', False)
-
-        ret_code, std_out, std_err = self.git.cmd(*args, **kwargs)
-
-        if ret_code != 0:
-            if silent is False:
-                self.logger.error(' '.join(self.git.curr_cmd) + " command failed")
-                self.logger.error(std_err)
-                err_msg = "%s. Code: %s" % (std_err.strip(), ret_code)
-                raise Exception(err_msg)
-
-        return std_out
-
-    def _git_merge(self, *args, **kwargs):
-        """
-
-        Execute given git merge/rebase command, and use rrcache to resolve any conflicts if auto_merge is set True in
-        kwargs. Also send email to recipients mentioned in email-options of KI json file, if needed manual effort in
-        resolving the conflict.
-            :param args: Merge params.
-            :param kwargs:
-            Dict options.
-            silent - Set True to supress any exceptions.
-            wd - Work directory of git command.
-            send_email - Set True if you want to send merge conflict email.
-            :return: None
-        """
-        yes = {'yes', 'y', 'ye', ''}
-
-        ret_code, std_out, std_err = self.git.cmd(*args, **kwargs)
-
-        if ret_code != 0:
-            use_manual_merge = True
-            self.logger.error(' '.join(self.git.curr_cmd) + " command failed")
-            self.logger.error(std_err)
-
-            status = self.git.cmd('diff')[1]
-
-            if kwargs.pop('auto_merge', False) == True and ">>>>>" not in status and "<<<<<<" not in status:
-                if "rebase" in list(args):
-                    while True:
-                        self.git.cmd('rebase', '--continue')
-                        if not os.path.exists(os.path.join(self.repo_dir, '.git/rebase-apply')):
-                            break
-                    status = self.git.cmd('diff')[1]
-                    if not ">>>>>" in status and not "<<<<<<" in status:
-                        use_manual_merge = False
-                elif "merge" in list(args) or "pull" in list(args):
-                    self.git.cmd('commit','-as', '--no-edit')
-                    use_manual_merge = False
-
-            if use_manual_merge is True:
-                if  kwargs.pop('send_email', False) is True:
-                    status = self.git.cmd('status')[1]
-                    content = "Following is the status of command: \n" + ' '.join(args) + '\n'
-                    content += 'Stdout Message:\n\n' + std_out if len(std_out) > 0 else "None" + '\n'
-                    content += 'Error Message:\n\n' + std_err if len(std_err) > 0 else "None" + '\n'
-                    content += "Git Status:\n\n" + status + '\n'
-                    self.send_email(subject_prefix=kwargs.pop('subject_prefix', ''),
-                                    subject=kwargs.pop('subject', 'Merge Conflict'),
-                                    content=content)
-                while True:
-                    print 'Please resolve the issue and then press y to continue'
-                    choice = raw_input().lower()
-                    if choice in yes:
-                        status = self.git.cmd('diff')[1]
-                        if ">>>>>" in status or "<<<<<<" in status:
-                            continue
-                        else:
-                            break
-
-    def _is_valid_head(self, head):
-        """
-        Check whether given SHA ID is valid or not. Executing git show <SHA ID> will fail if the <SHA ID> is incorrect.
-        :param head: SHA ID
-        :return: True if the SHA ID or head is valid, otherwise return False.
-        """
-        if len(head) == 0:
-            return False
-
-        ret, out, err  = self.git.cmd('show', head)
-        if ret == 0:
-            return True
-
-        return False
-
     def __init__(self, repo_dir, cfg, repo_head=None, emailcfg=None, logger=None):
         """
         Constructor of KernelInteg class.
@@ -178,9 +74,20 @@ class KernelInteg(object):
 
         valid_repo_head = False
 
+        def is_valid_head(head):
+
+            if len(head) == 0:
+                return False
+
+            ret, out, err = self.git.cmd('show', head)
+            if ret == 0:
+                return True
+
+            return False
+
         # Check if the repo head is valid.
         if len(repo_head) > 0:
-            if self._is_valid_head(repo_head) is False:
+            if is_valid_head(repo_head) is False:
                 raise Exception("Invalid repo head %s" % repo_head)
             else:
                 valid_repo_head = True
@@ -190,7 +97,7 @@ class KernelInteg(object):
             if valid_repo_head is True:
                 repo['repo-head'] = repo_head
             else:
-                if self._is_valid_head(repo['repo-head']) is False:
+                if is_valid_head(repo['repo-head']) is False:
                     raise Exception("Invalid repo head %s" % repo['repo-head'])
 
     def clean_repo(self):
@@ -199,246 +106,52 @@ class KernelInteg(object):
         :return: None
         """
         self.logger.info(format_h1("Cleaning repo", tab=2))
-        self._git("reset", "--hard")
-        self._git("clean", "-fdx")
 
-        local_branches = [x.strip() for x in self._git('branch').splitlines()]
+        self.git.cmd("reset", "--hard")
+        self.git.cmd("clean", "-fdx")
+
+        local_branches = [x.strip() for x in self.git.cmd('branch')[1].splitlines()]
         for branch in local_branches:
             if branch.startswith('* '):
                 continue
-            self._git("branch", "-D", branch)
+                self.git.cmd("branch", "-D", branch)
 
-    def send_email(self, to='', cc='', subject_prefix='', subject='test subject',  content='test content'):
-        # type: (str, str, str, str, str) -> None
-        """
-        Send email to given recipients mentioned in to and cc fields using given subject_prefix, subject and content.
-        :param to: To addresses seperated by commas.
-        :param cc: Cc addresses seperated by commas.
-        :param subject_prefix: Prefix to be added to subject.
-        :param subject: Subject of email message.
-        :param content: Content of the email.
-        :return: None
-        """
-        _smtp_server = self.email_options['smtp-server']
-        _from = self.email_options['from']
-        _to = self.email_options['to'] + ',' + to
-        _cc = self.email_options['cc'] + ',' + cc
-        decorate_subject = lambda s: "[ " + str(s) + " ]" if len(s) > 0 else ''
-        prefix = decorate_subject(self.subject_prefix) + decorate_subject(subject_prefix)
-        git_send_email(_from, _to, _cc,
-                       subject=prefix + ' ' + subject,
-                       content=content)
+    def _smb_sync(self, dest, remote, rdir, username='', password='', options=[]):
 
-    def _compile_test(self, options):
-        # type: (dict) -> boolean, str
-        """
-        Run selected compile tests for selected architectures.
-        Supported architectures are,  i386, x86_64, arm64.
-        Supported configurations are allyesconfig, allnoconfig, allmodconfig, defconfig.
+        cmd = ["//" + remote + '/' + rdir]
 
-        :param options: List of compile configurations. Each configuration shall have following options.
+        if len(password) > 0:
+            cmd.append(password)
+        else:
+            cmd.append("-N")
 
-        arch_name  - Name of the architecture.
-        compiler_options - Dictionary with compiler options.
-                         - CC - Compiler name
-                         - cflags - Array of compiler options.
-        allyesconfig - Option to select allyesconfig configuration.
-        allnoconfig - Option to select allnoconfig configuration.
-        allmodconfig - Option to select allmodconfig configuration.
-        defconfig - Option to select defconfig configuration.
+        if len(username) > 0:
+            cmd.append("-U")
+            cmd.append(username)
 
-        :return: Overal status of compile tests, and test output. Deafult status is True and output is empty string.
-        """
-        supported_archs = ['i386', 'x86_64', 'arm64']
-        supported_configs = ['allyesconfig', 'allnoconfig', 'allmodconfig', 'defconfig']
-        status = True
+        cmd = ['smbclient'] + cmd + options
 
-        self.logger.info(format_h1("Compile tests", tab=2))
+        ret, out, err = self.sh.cmd(' '.join(cmd), shell=True, wd=dest)
+        if ret != 0:
+            self.logger.error(err)
+            self.logger.error(out)
 
-        # Two dimensional status array arch/config
-        def results_template():
-            results = {}
-            for arch in supported_archs:
-                results[arch] = {}
-                for config in supported_configs:
-                    results[arch][config] = 'N/A'
+    def _git_sync(self, dest, remote, rbranch, options=[], msg='Upload updated cache', op='download'):
 
-            return results
+        git = GitShell(wd=dest, logger=self.logger)
 
-        results = results_template()
+        if op == "download":
+            git.cmd('fetch', remote)
+            git.cmd('checkout', remote + '/' + rbranch)
+        elif op == "upload":
+            git.cmd('add', '.')
+            git.cmd('commit -s -m "' + msg + '"')
+            git.cmd('push', ' '.join(options), remote, rbranch)
 
-        # String output with compile test results.
-        def generate_results(results):
-            width = len(max(supported_configs, key=len)) * 2
-            out = 'Compile Test Results:\n'
-            for arch in supported_archs:
-                out += '\t%s results:\n' % arch
-                for config in supported_configs:
-                    out += ('\t\t%-' + str(width) + 's: %s\n') % (config, results[arch][config])
-
-            return out + '\n\n'
-
-        # For every compile configuration, run compile tests and gather results.
-        for params in options:
-            if params['arch_name'] not in supported_archs:
-                continue
-            arch = params['arch_name']
-
-            def update_compile_results(arch, config, ret, out, err):
-                if ret == 0:
-                    results[arch][config] = 'Passed'
-                else:
-                    results[arch][config] = 'Failed'
-                    self.logger.error('Compile test %s/%s failed\n\n' % (arch, config))
-                    self.logger.error(err)
-
-            for config in supported_configs:
-                if params[config] is True:
-                    out_dir = os.path.join(self.repo_dir, 'out', arch, config)
-                    ret, out, err = 0, '', ''
-
-                    kobj = BuildKernel(src_dir=self.repo_dir, out_dir=out_dir,
-                                       arch=params['arch_name'],
-                                       cc=params['compiler_options']['CC'],
-                                       cflags=params['compiler_options']['cflags'],
-                                       logger=self.logger)
-
-                    getattr(kobj, 'make_' + config)()
-                    ret, out, err = kobj.make_kernel()
-                    update_compile_results(arch, config, ret, out, err)
-                    if ret != 0:
-                        status = False
-
-        return status, generate_results(results)
-
-    def _static_analysis(self, options):
-        """
-        Run static analysis tests.
-        Supported tests are checkpatch, aiaiai.
-        :param options:
-        :return:
-        """
-        supported_tests = ['checkpatch', 'aiaiai']
-
-        self.logger.info(format_h1("Static Analysis tests", tab=2))
-
-        # Create a result list for supported test types. Default result type is 'N/A'.
-        def results_template():
-            results = {}
-            for test in supported_tests:
-                results[test] = 'N/A'
-
-            return results
-
-        results = results_template()
-
-        # Generate test results string.
-        def generate_results(results):
-            out = 'Static Analysis Results:\n'
-            width = len(max(supported_tests, key=len)) * 2
-            for test in supported_tests:
-                out += ('\t%-' + str(width) + 's: %s\n') % (test, results[test])
-
-            return out + '\n\n'
-
-        if options['checkpatch']:
-            self.logger.info(format_h1("Checkpatch tests", tab=2))
-
-        if options['aiaiai']:
-            self.logger.info(format_h1("AiAiAi tests", tab=2))
-
-        return generate_results(results)
-
-    def _test_branch(self, branch_name, test_options):
-        """
-        Test given branch and return the status of tests.
-        :param branch_name: Name of the kernel branch.
-        :param test_options: Dict with test_options.
-                profiles - List of test profiles. Supported profiles are,
-                           "compile-tests",
-                           "static-analysis",
-                           "bat-tests".
-                Options assosiated with these profiles are defined in self.test_profiles.
-
-        :return: Status of the test.
-        """
-        self.logger.info(format_h1("Testing %s", tab=2) % branch_name)
-        profile_list = test_options['profiles']
-        status = True
-        out = '\n\n'
-
-        self._git("checkout", branch_name)
-
-        # For every test profile, run test and gather status and output.
-        for profile in profile_list:
-            if profile == 'compile-tests':
-                test_status, test_out = self._compile_test(self.test_profiles['compile-tests'])
-                out += test_out
-                if test_status is False:
-                    status = False
-            elif profile == 'static-analysis':
-                test_status, test_out = self._static_analysis(self.test_profiles['static-analysis'])
-                out += test_out
-                if test_status is False:
-                    status = False
-
-        self.logger.debug(out)
-
-        # If send-email flag is set, then send test results back to given recipients.
-        if test_options['send-email'] is True:
-            content = "Following is the test results for branch %s\n" % branch_name
-            content += out
-            self.send_email(subject_prefix=test_options['subject-prefix'], subject="Test Results", content=content)
-
-        return status
-
-    def _generate_output(self, head, branch_name, output_options):
-        """
-        Generate alternate outputs for given repo. Currently supported format is 'quilt'.
-        If quilt option is selected, then following command are executed.
-        git format-patch -C -M HEAD..<branch_name SHA_ID> -o quilt-folder.
-        Write patch names back to series file.
-
-        :param head: SHA ID or Tag of head of the kernel branch.
-        :param branch_name: Name of the branch.
-        :param output_options:
-        :return:
-        """
-
-        if output_options is None:
-            return
-
-        quilt_params = output_options.get('quilt', None)
-
-        if quilt_params is not None:
-            quilt_folder = os.path.join(self.repo_dir, 'quilt')
-            if quilt_params["quilt-folder"] != "":
-                quilt_folder = os.path.join(self.repo_dir, quilt_params["quilt-folder"])
-
-            self.logger.info(format_h1("Generating quilt patches in %s", tab=2) % quilt_folder)
-            self.logger.info(quilt_folder)
-
-            if os.path.exists(quilt_folder):
-                rmtree(quilt_folder, ignore_errors=True)
-
-            os.makedirs(quilt_folder)
-            tail = self.git.cmd('rev-parse', branch_name)[1]
-            err_code, output, err =  self.git.cmd('format-patch', '-C', '-M',
-                                                        head.strip() + '..' + tail.strip(),
-                                                        '-o', quilt_folder)
-            if err_code == 0:
-                def get_file_name(path):
-                    head, tail =  os.path.split(path)
-                    return tail
-                with open(os.path.join(quilt_folder, 'series.txt'), 'w') as f:
-                    patch_list = map(get_file_name, output.split('\n'))
-                    f.write(str('\n'.join(patch_list)))
-
-
-    def _config_rr_cache(self, params):
+    def _config_rr_cache(self, options):
         """
         Config git re re re cache.
-        :param params: Dict with rr-cache options.
+        :options: Dict with rr-cache options.
             use-auto-merge - Enable rerere.autoupdate if set True, otherwise do nothing.
             use-remote-cache - Get remote cache params if set True, otherwise no remote rerere cache is available.
             remote-cache-params - Parms for remote cache.
@@ -448,87 +161,64 @@ class KernelInteg(object):
 
         :return:
         """
-        if params is None:
+        if options is None:
             return
 
-        rr_cache_dir = os.path.join(self.repo_dir, '.git', 'rr-cache')
-        rr_cache_old_dir = os.path.join(self.repo_dir, '.git', 'rr-cache.old')
+        cache_dir = os.path.join(self.repo_dir, '.git', 'rr-cache')
+        old_dir = os.path.join(self.repo_dir, '.git', 'rr-cache.old')
 
-        self._git("config", "rerere.enabled", "true")
-
-        # Remove old cache
-        sh = PyShell(wd=self.repo_dir, logger=self.logger)
+        self.git.cmd("config", "rerere.enabled", "true")
 
         # Check and enable auto merge
-        if params['use-auto-merge'] == True:
-            self._git("config", "rerere.autoupdate", "true")
+        if options['use-auto-merge']:
+            self.git.cmd("config", "rerere.autoupdate", "true")
 
         # Check and add remote cache
-        if params['use-remote-cache'] == True:
-            remote_params = params['remote-cache-params']
-            if os.path.exists(rr_cache_dir):
-                rmtree(rr_cache_old_dir, ignore_errors=True)
-                move(rr_cache_dir, rr_cache_old_dir)
-            os.makedirs(rr_cache_dir)
-            if remote_params['sync-protocol'] == 'smb':
-                cmd = ["//" + remote_params['server-name'] + '/' + remote_params['share-point']]
-                if len(remote_params['password']) > 0:
-                    cmd.append(remote_params['password'])
-                else:
-                    cmd.append("-N")
-                if len(remote_params['username']) > 0:
-                    cmd.append("-U")
-                    cmd.append(remote_params['username'])
+        if options['use-remote-cache']:
+            roptions = options['remote-cache-params']
+            if os.path.exists(cache_dir):
+                rmtree(old_dir, ignore_errors=True)
+                move(cache_dir, old_dir)
+            os.makedirs(cache_dir)
+            if roptions['sync-protocol'] == 'smb':
+                self._smb_sync(cache_dir, roptions['url'], roptions['remote-dir'], roptions['username'],
+                               roptions['password'], roptions['sync-options'])
+            elif roptions['sync-protocol'] == 'git':
+                self._git_sync(cache_dir, roptions['url'], roptions['remote-dir'], roptions['sync-options'])
 
-                cmd = ['smbclient'] + cmd + remote_params['sync-options']
-                ret, out, err = sh.cmd(*cmd, wd=rr_cache_dir)
-                if ret != 0:
-                    self.logger.error(ret)
-                    self.logger.error(err)
-                    self.logger.error(out)
-
-    def _reset_rr_cache(self, params):
+    def _reset_rr_cache(self, options):
         """
         Reset git rerere cache
         :param params: Dict with remote cache related params.
         :return:
         """
-        if params is None:
+        if options is None:
             return
 
-        rr_cache_dir = os.path.join(self.repo_dir, '.git', 'rr-cache')
-        rr_cache_old_dir = os.path.join(self.repo_dir, '.git', 'rr-cache.old')
+        cache_dir = os.path.join(self.repo_dir, '.git', 'rr-cache')
+        old_dir = os.path.join(self.repo_dir, '.git', 'rr-cache.old')
 
-        self._git("config", "rerere.enabled", "false")
+        self.git.cmd("config", "rerere.enabled", "false")
 
         sh = PyShell(wd=self.repo_dir, logger=self.logger)
 
-        if params.get('upload-remote-cache', False) is True and os.path.exists(rr_cache_dir):
-            if params['use-remote-cache'] == True:
-                remote_params = params['remote-cache-params']
-                if remote_params['upload-protocol'] == 'smb':
-                    cmd = ["//" + remote_params['server-name'] + '/' + remote_params['share-point']]
-                    if len(remote_params['password']) > 0:
-                        cmd.append(remote_params['password'])
-                    else:
-                        cmd.append("-N")
-                    if len(remote_params['username']) > 0:
-                        cmd.append("-U")
-                        cmd.append(remote_params['username'])
+        if options['upload-remote-cache'] and os.path.exists(cache_dir):
+            if options['use-remote-cache']:
+                roptions = options['remote-cache-params']
+                if roptions['upload-protocol'] == 'smb':
+                    self._smb_sync(cache_dir, roptions['url'], roptions['remote-dir'], roptions['username'],
+                                   roptions['password'], roptions['upload-options'])
+                elif roptions['upload-protocol'] == 'git':
+                    self._git_sync(cache_dir, roptions['url'], roptions['remote-dir'], roptions['upload-options'])
 
-                    cmd = ['smbclient'] + cmd + remote_params['upload-options']
-                    ret, out, err = sh.cmd(*cmd, wd=os.path.join(self.repo_dir,'.git', 'rr-cache'))
-                    self.logger.error(ret)
-                    self.logger.error(err)
-                    self.logger.error(out)
 
-        if params['use-remote-cache'] == True  and os.path.exists(rr_cache_old_dir):
-            rmtree(rr_cache_dir, ignore_errors=True)
-            sh.cmd('mv', rr_cache_old_dir, rr_cache_dir)
+        if options['use-remote-cache'] and os.path.exists(old_dir):
+            rmtree(cache_dir, ignore_errors=True)
+            sh.cmd('mv', old_dir, cache_dir)
 
 
 
-    def _merge_branches(self, mode, merge_list, dest, options):
+    def _merge_branches(self, mode, merge_list, dest, options, sendemail=False, sub_prefix=''):
         """
         Merge the branches given in merge_list and create a output branch.
         Basic logic is,
@@ -563,6 +253,50 @@ class KernelInteg(object):
                 return ' '.join('merge', ' '.join(options), rbranch)
 
 
+        def send_email(remote, branch, status, out, err):
+
+            if not sendemail:
+                return
+
+            subject = [] if len(sub_prefix) == 0 else [sub_prefix]
+            content = []
+
+            if mode == 'merge':
+                subject.append('Merge')
+            elif mode == 'rebase':
+                subject.append('Rebase')
+            elif mode == 'replace':
+                subject.append('Replace')
+
+            if remote is not None and len(remote) > 0:
+                branch = remote + '/' + branch
+
+            subject.append(branch)
+
+            if status:
+                subject.apend('passed')
+            else:
+                subject.append('failed')
+
+
+            content.append('Head: %s' % self.git.head_sha())
+            content.append('Base: %s' % self.git.base_sha())
+            content.append('Dest Branch: %s' % dest)
+            content.append('Remote: %s' % remote)
+            content.append('Remote Branch: %s' % branch)
+            content.append('Status: %s' % "Passed" if status else "Failed")
+            content.append('\n\n\n')
+            content.append(format_h1("Output log"))
+            content.append(out)
+            content.append(format_h1("Error log"))
+            content.append(err)
+
+
+            self.emailobj.send_email(' '.join(subject), '\n'.join(content))
+
+        if options["use-rr-cache"]:
+            self._config_rr_cache(options["rr-cache"])
+
         for remote, branch in merge_list:
             ret = 0, '', ''
             if mode == "merge":
@@ -575,28 +309,36 @@ class KernelInteg(object):
                 ret = self.git.cmd("checkout", remote + '/' + branch if remote != '' else branch)
 
             if self.git.inprogress() or ret != 0:
-                if self.cfg[""]
-                self.emailobj
+                if options["rr-cache"]["use-auto-merge"]:
+                    if len(self.git.cmd('rerere diff')[1]) < 2:
+                        if mode == "merge":
+                            self.git.cmd('commit', '-as', '--no-edit')
+                        elif mode == "rebase":
+                            self.git.cmd('rebase', '--continue')
 
+                if self.git.inprogress():
+                    send_email(remote, branch, False, ret[1], ret[2])
 
-        elif mode == "rebase":
-            for remote, branch in merge_list:
-                if remote != '':
-                    self._git("checkout", remote + '/' + branch)
-                else:
-                    self._git("checkout", branch)
-                self._git_merge("rebase", dest, send_email=True, subject_prefix=dest, subject='Rebase Failed',
-                                auto_merge=params['use-rr-cache'])
-                self._git("branch", '-D', dest)
-                self._git("checkout", '-b', dest)
+                    while True:
+                        print 'Please resolve the issue and then press y to continue'
+                        choice = raw_input().lower()
+                        if choice in ['yes', 'y', 'ye', '']:
+                            if self.git.inprogress():
+                                continue
+                            else:
+                                break
 
-        if self.skip_rr_cache == False and params['use-rr-cache'] is True:
-            self._reset_rr_cache(rr_cache_params)
+            if mode == "rebase" and not self.git.inprogress():
+                self.git.cmd("branch", '-D', dest)
+                self.git.cmd("checkout", '-b', dest)
+
+        if options['use-rr-cache']:
+            self._reset_rr_cache(options["rr-cache"])
 
         return True
 
 
-    def _upload_branch(self, branch_name, upload_options):
+    def _upload_repo(self, branch_name, upload_options):
         """
         Upload the given branch to a remote patch.
         supported upload modes are force-push, push and refs-for (for Gerrit).
@@ -608,12 +350,9 @@ class KernelInteg(object):
         """
         self.logger.info(format_h1("Uploading %s", tab=2) % branch_name)
 
-        if upload_options['mode'] == 'force-push':
-            self._git("push", "-f", upload_options['url'], branch_name + ":" + upload_options['branch'])
-        elif upload_options['mode'] == 'push':
-            self._git("push", upload_options['url'], branch_name + ":" + upload_options['branch'])
-        elif upload_options['mode'] == 'refs-for':
-            self._git("push", upload_options['url'], branch_name + ":refs/for/" + upload_options['branch'])
+        self.git.push(self, branch_name, upload_options['url'], upload_options['branch'],
+                      force=(upload_options['mode'] == 'force-push'),
+                      use_refs=(upload_options['mode'] == 'refs-for'))
 
     def _create_repo(self, repo):
         """
@@ -640,7 +379,7 @@ class KernelInteg(object):
         for srepo in repo['source-list']:
             if srepo['skip'] is True:
                 continue
-            if self._is_valid_branch(srepo['url'], srepo['branch']) is False:
+            if self.git.valid_branch(srepo['url'], srepo['branch']) is False:
                 raise Exception("Dependent repo %s/%s does not exits" % (srepo['url'], srepo['branch']))
             else:
                 merge_list.append((srepo['url'], srepo['branch']))
@@ -650,29 +389,21 @@ class KernelInteg(object):
         try:
             for dest_repo in repo['dest-list']:
 
-                if self._is_valid_branch('', dest_repo['local-branch']):
+                if self.git.valid_branch('', dest_repo['local-branch']):
                     ret = self.git.cmd("branch", "-D", dest_repo['local-branch'])[0]
                     if ret != 0:
                         Exception("Deleting branch %s failed" % dest_repo['local-branch'])
 
-                self._git("checkout", repo['repo-head'], "-b", dest_repo['local-branch'])
+                self.git.cmd("checkout", repo['repo-head'], "-b", dest_repo['local-branch'])
 
                 if len(merge_list) > 0:
                     self._merge_branches(dest_repo['merge-mode'], merge_list,
                                          dest_repo['local-branch'],
                                          dest_repo['merge-options'])
-
-                if dest_repo['test-branch'] is True:
-                    test_options = dest_repo['test-options']
-                    status = self._test_branch(dest_repo['local-branch'], test_options)
-                    if status is False:
-                        self.logger.error("Testing %s branch failed" % dest_repo['local-branch'])
-                        break
         except Exception as e:
-            self.logger.error(e)
+            self.logger.error(e, exc_info=True)
             for branch in dest_branches:
                 self.git.cmd("branch", "-D", branch)[0]
-            raise Exception("repo %s creation failed" % repo['repo-name'])
         else:
             self.logger.info("repo %s creation successfull" % repo['repo-name'])
 
@@ -699,13 +430,11 @@ class KernelInteg(object):
             for dest_repo in repo['dest-list']:
                 if dest_repo['upload-copy'] is True:
                     upload_options = dest_repo['upload-options']
-                    self._upload_branch(dest_repo['local-branch'], upload_options)
-
-                if dest_repo['generate-output'] is True:
-                    output_options = dest_repo['output-options']
-                    self._generate_output(repo['repo-head'], dest_repo['local-branch'], output_options)
+                    self._upload_repo(dest_repo['local-branch'], upload_options)
         else:
             self.logger.warn("Skipping destination branch upload")
+
+        return status
 
     def _get_repo_by_name(self, name):
         """
@@ -719,113 +448,28 @@ class KernelInteg(object):
 
         return None
 
-    def _create_branches(self, repo_list=[]):
-        """
-        For every repo in repo_list, parse and perform kernel integration as defined by repo options.
-        :param repo_list: List of repos
-        :return: None
-        """
-        for name in repo_list:
-            repo = self._get_repo_by_name(name)
-            if repo == None:
-                self.logger.error("Repo %s does not exist\n" % name)
-                continue
-            else:
-                self._create_branch(repo)
-
-    def gen_dep_branches(self, kint_branch):
-        """
-        Generate dependent repo's for given repo.
-        :param kint_branch: Name of the repo.
-        :return: None
-        """
-        for repo in self.kint_repos:
-            if repo['kint-repo'] == kint_branch:
-                self._create_branches(repo['dep-repos'])
-
-    def gen_kint_repos(self, kint_branch=None, skip_dep=False):
+    def start(self, name, skip_dep=False):
         """
         Generate kernel and its depndent branches.
-        :param kint_branch: Name of the kernel branch.
-        :param skip_dep: Skip creating dependent branches.
+        :param name: Name of the kernel repo.
+        :param skip_dep: Skip creating dependent repos.
         :return: None
         """
-        for repo in self.kint_repos:
-            if kint_branch is not None and repo['kint-repo'] != kint_branch:
-                continue
-            if skip_dep is False:
-                self._create_branches(repo['dep-repos'])
-            self._create_branches([repo['kint-repo']])
+        dep_list = []
+        # First get the dep list
+        for item in self.int_list:
+            if item["repo"] == name:
+                dep_list = item["dep-repos"]
 
-def is_valid_dir(parser, arg):
-    if not os.path.isdir(arg):
-        yes = {'yes', 'y', 'ye', ''}
-        print 'The directory {} does not exist'.format(arg)
-        print 'Press y to create new directory'
-        choice = raw_input().lower()
-        if choice in yes:
-            os.makedirs(arg)
-        else:
-            parser.error('The directory {} does not exist'.format(arg))
+        int_list =  dep_list if not skip_dep else []
+        int_list += [name]
 
-    return os.path.abspath(arg)
+        for name in int_list:
+            repo = self._get_repo_by_name(name)
+            if repo is not None:
+                self._create_repo(repo)
+            else:
+                self.logger.error("Repo %s does not exist\n" % name)
+                return False
 
-def setup_logging(default_path, default_level=logging.INFO, env_key='LOG_CFG'):
-    path = default_path
-    value = os.getenv(env_key, None)
-    if value:
-        path = value
-    if os.path.exists(path):
-        with open(path, 'rt') as f:
-            config = yaml.safe_load(f.read())
-            logging.config.dictConfig(config)
-    else:
-        logging.basicConfig(level=default_level)
-
-    return logging.getLogger(__name__)
-
-def add_cli_options(parser):
-
-    parser.add_argument('-d', '--repo-dir', action='store', dest='repo_dir',
-                        type=lambda x: is_valid_dir(parser, x),
-                        default=os.getcwd(),
-                        help='Kerenl repo directory')
-    parser.add_argument('--skip-repo-clean', action='store_true', dest='skip_repo_clean',
-                        default=False,
-                        help='Skip cleaning the the repo')
-    parser.add_argument('--skip-dep', action='store_true', dest='skip_dep',
-                        default=False,
-                        help='skip creating dependent repos')
-    parser.add_argument('--skip-rrcache', action='store_true', dest='skip_rr_cache',
-                        default=False,
-                        help='skip using git rerere cache')
-    parser.add_argument('-r', '--kint-repo', action='store', dest='kint_repo_name',
-                        default=None,
-                        help='Integrate specific repo')
-    parser.add_argument('-s', '--schema-file', action='store', dest='config_schema',
-                        default=os.path.join(os.getcwd(), 'kint-configs', 'kint-schema.json'),
-                        help='Kernel Integration schema file')
-    parser.add_argument('--kernel-head', action='store', dest='kernel_tag',
-                        default='',
-                        help='SHA ID or tag of kernel HEAD')
-
-    parser.add_argument('config', action='store', help='staging config')
-
-if __name__ == "__main__":
-
-    logger = setup_logging(os.path.join(os.getcwd(), 'kint-configs', 'log-config.yaml'))
-
-    parser = argparse.ArgumentParser(description='Script used for dev-bkc/LTS Kerenl Integration')
-
-    add_cli_options(parser)
-
-    args = parser.parse_args()
-
-    obj = KernelInteg(os.path.abspath(args.config), os.path.abspath(args.config_schema),
-                      args.kernel_tag, args.repo_dir,
-                      skip_rr_cache=args.skip_rr_cache, logger=logger)
-
-    if args.skip_repo_clean is False:
-        obj.clean_repo()
-
-    obj.gen_kint_repos(args.kint_repo_name, args.skip_dep)
+        return True

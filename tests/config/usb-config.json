@@ -1,0 +1,291 @@
+{
+    "remote-list": [
+        {
+            "name": "tracker",
+            "url": "ssh://git-amr-4.devtools.intel.com/kernel-coe-tracker"
+        },
+        {
+            "name": "otc-usb-xhci",
+            "url": "git://git-amr-4.devtools.intel.com/otc_usb-xhci.git"
+        },
+        {
+            "name": "otc-usb-typec",
+            "url": "git://git-amr-4.devtools.intel.com/otc_usb-typec.git"
+        },
+        {
+            "name": "otc-usb-gadget",
+            "url": "git://git-amr-4.devtools.intel.com/otc_usb-gadget.git"
+        },
+        {
+            "name": "linux-next",
+            "url": "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git"
+        }
+    ],
+    "repo-list": [
+        {
+            "repo-name": "otc-usb-xhci",
+            "repo-head": "",
+            "send-email": true,
+            "email-prefix": "USB xhci",
+            "source-list": [
+                {
+                    "use-local": false,
+                    "skip": false,
+                    "url": "otc-usb-xhci",
+                    "branch": "for-eywa"
+                }
+            ],
+            "dest-list": [
+                {
+                    "local-branch": "coe/usb/xhci-usb",
+                    "merge-mode": "rebase",
+                    "merge-options": {
+                        "no-ff": true,
+                        "add-log": true,
+                        "send-email": true,
+                        "email-prefix": "Merge issues in coe/usb/xhci-usb",
+                        "use-rr-cache": true,
+                        "rr-cache": {
+                            "use-remote-cache": false,
+                            "upload-remote-cache": false,
+                            "use-auto-merge": true,
+                            "remote-cache-params": {
+                                "url": "tracker",
+                                "remote-dir": ".",
+                                "branch": "sandbox-skuppusw/test/usb/rrcache",
+                                "username": "",
+                                "password": "",
+                                "sync-protocol": "git",
+                                "sync-options": [],
+                                "upload-options": []
+                            }
+                        }
+                    },
+                    "upload-options": {
+                        "mode": "force-push",
+                        "url": "tracker",
+                        "branch": "sandbox-skuppusw/test/usb/xhci-usb"
+                    }
+                }
+            ]
+        },
+        {
+            "repo-name": "otc-usb-typec",
+            "repo-head": "",
+            "send-email": true,
+            "email-prefix": "USB Typec",
+            "source-list": [
+                {
+                    "use-local": false,
+                    "skip": false,
+                    "url": "otc-usb-typec",
+                    "branch": "for-eywa"
+                }
+            ],
+            "dest-list": [
+                {
+                    "local-branch": "coe/usb/typec-usb",
+                    "merge-mode": "rebase",
+                    "test-branch": false,
+                    "upload-copy": false,
+                    "merge-options": {
+                        "no-ff": true,
+                        "add-log": true,
+                        "send-email": true,
+                        "email-prefix": "Merge issues in coe/usb/typec-usb",
+                        "use-rr-cache": true,
+                        "rr-cache": {
+                            "use-remote-cache": false,
+                            "upload-remote-cache": false,
+                            "use-auto-merge": true,
+                            "remote-cache-params": {
+                                "url": "tracker",
+                                "remote-dir": ".",
+                                "branch": "sandbox-skuppusw/test/usb/rrcache",
+                                "username": "",
+                                "password": "",
+                                "sync-protocol": "git",
+                                "sync-options": [],
+                                "upload-options": []
+                            }
+                        }
+                    },
+                    "upload-options": {
+                        "mode": "force-push",
+                        "url": "tracker",
+                        "branch": "sandbox-skuppusw/test/usb/typec-usb"
+                    }
+                }
+            ]
+        },
+        {
+            "repo-name": "otc-usb-gadget",
+            "repo-head": "",
+            "send-email": true,
+            "email-prefix": "USB gadget",
+            "source-list": [
+                {
+                    "use-local": false,
+                    "skip": false,
+                    "url": "otc-usb-gadget",
+                    "branch": "for-eywa"
+                }
+            ],
+            "dest-list": [
+                {
+                    "local-branch": "coe/usb/gadget-usb",
+                    "merge-mode": "rebase",
+                    "test-branch": false,
+                    "upload-copy": false,
+                    "merge-options": {
+                        "no-ff": true,
+                        "add-log": true,
+                        "send-email": true,
+                        "email-prefix": "Merge issues in coe/usb/gadget-usb",
+                        "use-rr-cache": true,
+                        "rr-cache": {
+                            "use-remote-cache": false,
+                            "upload-remote-cache": false,
+                            "use-auto-merge": true,
+                            "remote-cache-params": {
+                                "url": "tracker",
+                                "remote-dir": ".",
+                                "branch": "sandbox-skuppusw/test/usb/rrcache",
+                                "username": "",
+                                "password": "",
+                                "sync-protocol": "git",
+                                "sync-options": [],
+                                "upload-options": []
+                            }
+                        }
+                    },
+                    "upload-options": {
+                        "mode": "force-push",
+                        "url": "tracker",
+                        "branch": "sandbox-skuppusw/test/usb/gadget-usb"
+                    }
+                }
+            ]
+        },
+        {
+            "repo-name": "pkt-usb",
+            "source-list": [
+                {
+                    "use-local": false,
+                    "skip": false,
+                    "url": "tracker",
+                    "branch": "coe/usb/pkt-usb"
+                }
+            ],
+            "dest-list": [
+                {
+                    "local-branch": "coe/usb/pkt-usb",
+                    "merge-mode": "rebase",
+                    "test-branch": false,
+                    "upload-copy": false,
+                    "merge-options": {
+                        "no-ff": true,
+                        "add-log": true,
+                        "send-email": true,
+                        "email-prefix": "Merge issues in coe/usb/pkt-usb",
+                        "use-rr-cache": true,
+                        "rr-cache": {
+                            "use-remote-cache": false,
+                            "upload-remote-cache": false,
+                            "use-auto-merge": true,
+                            "remote-cache-params": {
+                                "url": "tracker",
+                                "remote-dir": ".",
+                                "branch": "sandbox-skuppusw/test/usb/rrcache",
+                                "username": "",
+                                "password": "",
+                                "sync-protocol": "git",
+                                "sync-options": [],
+                                "upload-options": []
+                            }
+                        }
+                    },
+                    "upload-options": {
+                        "mode": "force-push",
+                        "url": "tracker",
+                        "branch": "sandbox-skuppusw/test/usb/pkt-usb"
+                    }
+                }
+            ]
+        },
+        {
+            "repo-name": "usb-staging",
+            "source-list": [
+                {
+                    "use-local": true,
+                    "skip": false,
+                    "url": "",
+                    "branch": "coe/usb/xhci-usb"
+                },
+                {
+                    "use-local": true,
+                    "skip": true,
+                    "url": "",
+                    "branch": "coe/usb/gadget-usb"
+                },
+                {
+                    "use-local": true,
+                    "skip": false,
+                    "url": "",
+                    "branch": "coe/usb/typec-usb"
+                },
+                {
+                    "use-local": true,
+                    "skip": false,
+                    "url": "",
+                    "branch": "coe/usb/pkt-usb"
+                }
+            ],
+            "dest-list": [
+                {
+                    "local-branch": "dev/staging/usb",
+                    "merge-mode": "rebase",
+                    "test-branch": true,
+                    "upload-copy": false,
+                    "merge-options": {
+                        "no-ff": true,
+                        "add-log": true,
+                        "send-email": true,
+                        "email-prefix": "Merge issues in dev/staging/usb",
+                        "use-rr-cache": true,
+                        "rr-cache": {
+                            "use-remote-cache": false,
+                            "upload-remote-cache": false,
+                            "use-auto-merge": true,
+                            "remote-cache-params": {
+                                "url": "tracker",
+                                "remote-dir": ".",
+                                "branch": "sandbox-skuppusw/test/usb/rrcache",
+                                "username": "",
+                                "password": "",
+                                "sync-protocol": "git",
+                                "sync-options": [],
+                                "upload-options": []
+                            }
+                        }
+                    },
+                    "upload-options": {
+                        "mode": "force-push",
+                        "url": "tracker",
+                        "branch": "sandbox-skuppusw/test/usb/staging"
+                    }
+                }
+            ]
+        }
+    ],
+    "int-list": [
+        {
+            "dep-repos": [
+                "otc-usb-xhci",
+                "otc-usb-typec",
+                "pkt-usb"
+            ],
+            "repo": "usb-staging"
+        }
+    ]
+}

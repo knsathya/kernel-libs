@@ -43,7 +43,8 @@ setup(name='klibs',
       packages=['klibs'],
       install_requires=[
           'pyshell',
-          'jsonparser'
+          'jsonparser',
+          'pyyaml'
       ],
       dependency_links=[
           'git+https://github.com/knsathya/pyshell.git#egg=pyshell',

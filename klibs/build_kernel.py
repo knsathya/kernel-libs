@@ -345,7 +345,7 @@ class BuildKernel(object):
     def copy_newconfig(self, cfg):
         if not os.path.exists(cfg):
             return -1, '', 'Config %s does not exists' % cfg
-        copy(cfg, self.cfg)
+        copy2(cfg, self.cfg)
 
     def make_kernel(self, flags=[], log=False, dryrun=False):
         assert_exists(self.cfg, "No config file found in %s" % self.cfg, logger=self.logger)

@@ -144,11 +144,6 @@
                                             "type": "boolean",
                                             "default": false
                                         },
-                                        "send-email": {
-                                            "description": "Enable to send email on merge conflicts",
-                                            "type": "boolean",
-                                            "default": false
-                                        },
                                         "email-prefix": {
                                             "description": "Email prefix to be included in subject for merge issues",
                                             "type": "string",
@@ -176,13 +171,20 @@
                                                             "type": "string"
                                                         },
                                                         "remote-dir": {
-                                                            "type": "string"
+                                                            "type": "string",
+                                                            "default": ""
+                                                        },
+                                                        "branch": {
+                                                            "type": "string",
+                                                            "branch": ""
                                                         },
                                                         "username": {
-                                                            "type": "string"
+                                                            "type": "string",
+                                                            "default": ""
                                                         },
                                                         "password": {
-                                                            "type": "string"
+                                                            "type": "string",
+                                                            "default": ""
                                                         },
                                                         "sync-protocol": {
                                                             "enum": [
@@ -190,27 +192,22 @@
                                                                 "rsync",
                                                                 "wget",
                                                                 "git"
-                                                            ]
+                                                            ],
+                                                            "default": "git"
                                                         },
                                                         "sync-options": {
                                                             "type": "array",
                                                             "items": {
                                                                 "type": "string"
-                                                            }
-                                                        },
-                                                        "upload-protocol": {
-                                                            "enum": [
-                                                                "smb",
-                                                                "rsync",
-                                                                "wget",
-                                                                "git"
-                                                            ]
+                                                            },
+                                                            "default": []
                                                         },
                                                         "upload-options": {
                                                             "type": "array",
                                                             "items": {
                                                                 "type": "string"
-                                                            }
+                                                            },
+                                                            "default": []
                                                         }
                                                     },
                                                     "default": {}

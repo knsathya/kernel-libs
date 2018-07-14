@@ -270,22 +270,18 @@ class KernelTest(object):
         self.checkpatch_source = CHECK_PATCH_SCRIPT
         self.custom_configs = []
 
-        if not is_valid_kernel(src, logger):
-            return
-
-        self.version = BuildKernel(self.src).uname
-
-        if len(self.version) > 0:
-            self.resobj.update_kernel_params(version=self.version)
+        if self.rname is not None and len(self.rname) > 0:
+            if not os.path.exists(self.src):
+                os.makedirs(self.src)
+            if not self.git.valid():
+                self.git.init()
+            self.git.add_remote(rname, rurl)
+            self.git.cmd('fetch %s' % rname)
+            self.branch = self.rname + '/' + self.branch
 
         self.valid_git = True if self.git.valid() else False
 
         if self.valid_git:
-            if self.rname is not None and len(self.rname) > 0:
-                self.git.add_remote(rname, rurl)
-                self.git.cmd('fetch %s' % rname)
-                self.branch = self.rname + '/' + self.branch
-
             if self.branch is not None and len(self.branch) > 0:
                 if self.git.cmd('checkout', branch)[0] != 0:
                     self.logger.error("Git checkout command failed in %s", self.src)
@@ -300,6 +296,14 @@ class KernelTest(object):
                 self.base = self.git.base_sha()
 
             self.resobj.update_kernel_params(base=self.base, head=self.head, branch=self.branch)
+
+        if not is_valid_kernel(src, logger):
+            return
+
+        self.version = BuildKernel(self.src).uname
+
+        if len(self.version) > 0:
+            self.resobj.update_kernel_params(version=self.version)
 
         if cfg is not None:
             self.cfgobj = JSONParser(self.schema, cfg, extend_defaults=True, os_env=True, logger=logger)
