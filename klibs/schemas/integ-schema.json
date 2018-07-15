@@ -178,6 +178,15 @@
                                                             "type": "string",
                                                             "branch": ""
                                                         },
+                                                        "mode": {
+                                                            "description": "Push model to be used during repository upload",
+                                                            "enum": [
+                                                                "force-push",
+                                                                "push",
+                                                                "refs-for"
+                                                            ],
+                                                            "default": "push"
+                                                        },
                                                         "username": {
                                                             "type": "string",
                                                             "default": ""
@@ -203,6 +212,13 @@
                                                             "default": []
                                                         },
                                                         "upload-options": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            },
+                                                            "default": []
+                                                        },
+                                                        "upload-msg": {
                                                             "type": "array",
                                                             "items": {
                                                                 "type": "string"

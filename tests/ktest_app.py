@@ -58,7 +58,7 @@ def add_cli_options(parser):
     checkpatch_parser = subparsers.add_parser('checkpatch', help='Run checkpatch test')
     checkpatch_parser.set_defaults(which='use_checkpatch')
 
-    for sub_parser in [compile_parser, sparse_parser, smatch_parser, checkpatch_parser]:
+    for sub_parser in [compile_parser, sparse_parser, smatch_parser]:
         sub_parser.add_argument('arch', choices=supported_archs, help='Arch to be tested')
         sub_parser.add_argument('--configs', default=[], nargs='*', dest='config_list',
                                 help='Choose configs in %s' % (supported_configs + supported_oldconfigs))

@@ -19,8 +19,7 @@
 import os
 import logging, logging.config
 import pkg_resources
-import argparse
-import yaml
+import tempfile
 from shutil import rmtree, move
 
 from jsonparser import JSONParser
@@ -136,17 +135,31 @@ class KernelInteg(object):
             self.logger.error(err)
             self.logger.error(out)
 
-    def _git_sync(self, dest, remote, rbranch, options=[], msg='Upload updated cache', op='download'):
+    def _git_sync(self, dest, remote, rbranch, mode='push', msg='Upload updated cache', op='download'):
 
-        git = GitShell(wd=dest, logger=self.logger)
+        uret = self.git.cmd('remote get-url %s' % remote)
+        if uret[0] != 0:
+            self.logger.error("Invalid sync remote %s branch %s" % (remote, rbranch))
+            return False
+
+        git = GitShell(wd=dest, init=True, remote_list=[(remote, uret[1])], logger=self.logger)
 
         if op == "download":
+            git.cmd('clean -xdf')
             git.cmd('fetch', remote)
             git.cmd('checkout', remote + '/' + rbranch)
         elif op == "upload":
             git.cmd('add', '.')
-            git.cmd('commit -s -m "' + msg + '"')
-            git.cmd('push', ' '.join(options), remote, rbranch)
+            with tempfile.NamedTemporaryFile() as msg_file:
+                msg_file.write(msg)
+                msg_file.seek(0)
+                git.cmd('commit -s -F %s' % msg_file.name)
+            if mode == 'refs-for':
+                rbranch = 'refs/for/%s' % rbranch
+            if not git.valid_branch(remote, rbranch) or mode == 'force-push':
+                git.cmd('push', '-f', remote, 'HEAD:%s' % rbranch)
+            else:
+                git.cmd('push', remote, 'HEAD:%s' % rbranch)
 
     def _config_rr_cache(self, options):
         """
@@ -169,6 +182,16 @@ class KernelInteg(object):
 
         self.git.cmd("config", "rerere.enabled", "true")
 
+        def init_state(roptions):
+            if os.path.exists(cache_dir):
+                if roptions['sync-protocol'] != 'git':
+                    if os.path.exists(old_dir):
+                        self.sh.cmd('rm -fr %s' %  old_dir, shell=True)
+                    self.sh.cmd('mv', cache_dir, old_dir, shell=True)
+                    self.sh.cmd('mkdir -p %s' % cache_dir, shell=True)
+            else:
+                    self.sh.cmd('mkdir -p %s' % cache_dir, shell=True)
+
         # Check and enable auto merge
         if options['use-auto-merge']:
             self.git.cmd("config", "rerere.autoupdate", "true")
@@ -176,15 +199,12 @@ class KernelInteg(object):
         # Check and add remote cache
         if options['use-remote-cache']:
             roptions = options['remote-cache-params']
-            if os.path.exists(cache_dir):
-                rmtree(old_dir, ignore_errors=True)
-                move(cache_dir, old_dir)
-            os.makedirs(cache_dir)
+            init_state(roptions)
             if roptions['sync-protocol'] == 'smb':
                 self._smb_sync(cache_dir, roptions['url'], roptions['remote-dir'], roptions['username'],
                                roptions['password'], roptions['sync-options'])
             elif roptions['sync-protocol'] == 'git':
-                self._git_sync(cache_dir, roptions['url'], roptions['remote-dir'], roptions['sync-options'])
+                self._git_sync(cache_dir, roptions['url'], roptions['branch'], roptions['mode'])
 
     def _reset_rr_cache(self, options):
         """
@@ -200,25 +220,27 @@ class KernelInteg(object):
 
         self.git.cmd("config", "rerere.enabled", "false")
 
-        sh = PyShell(wd=self.repo_dir, logger=self.logger)
+        def reset_state(roptions):
+            if options['use-remote-cache']:
+                if roptions['sync-protocol'] != 'git':
+                    if os.path.exists(old_dir):
+                        if os.path.exists(cache_dir):
+                            self.sh.cmd('rm -fr %s' % cache_dir, shell=True)
+                        self.sh.cmd('mv', old_dir, cache_dir, shell=True)
 
         if options['upload-remote-cache'] and os.path.exists(cache_dir):
             if options['use-remote-cache']:
                 roptions = options['remote-cache-params']
-                if roptions['upload-protocol'] == 'smb':
+                if roptions['sync-protocol'] == 'smb':
                     self._smb_sync(cache_dir, roptions['url'], roptions['remote-dir'], roptions['username'],
                                    roptions['password'], roptions['upload-options'])
-                elif roptions['upload-protocol'] == 'git':
-                    self._git_sync(cache_dir, roptions['url'], roptions['remote-dir'], roptions['upload-options'])
+                elif roptions['sync-protocol'] == 'git':
+                    self._git_sync(cache_dir, roptions['url'], roptions['branch'], roptions['mode'],
+                                   '\n'.join(roptions['upload-msg']), op='upload')
 
+        reset_state(options['remote-cache-params'])
 
-        if options['use-remote-cache'] and os.path.exists(old_dir):
-            rmtree(cache_dir, ignore_errors=True)
-            sh.cmd('mv', old_dir, cache_dir)
-
-
-
-    def _merge_branches(self, mode, merge_list, dest, options, sendemail=False, sub_prefix=''):
+    def _merge_branches(self, mode, merge_list, dest, options, sendemail=False, sub_prefix='', rrupload_header=''):
         """
         Merge the branches given in merge_list and create a output branch.
         Basic logic is,
@@ -245,12 +267,12 @@ class KernelInteg(object):
                 options.append('--log')
 
             if abort is True:
-                return ' '.join('merge', '--abort')
+                return ' '.join(['merge', '--abort'])
 
             if remote is not None and len(remote) > 0:
-                return ' '.join('pull', ' '.join(options), rbranch)
+                return ' '.join(['pull', ' '.join(options), rbranch])
             else:
-                return ' '.join('merge', ' '.join(options), rbranch)
+                return ' '.join(['merge', ' '.join(options), rbranch])
 
 
         def send_email(remote, branch, status, out, err):
@@ -274,25 +296,43 @@ class KernelInteg(object):
             subject.append(branch)
 
             if status:
-                subject.apend('passed')
+                subject.append('passed')
             else:
                 subject.append('failed')
 
+            uret = self.git.cmd('remote get-url %s' % remote)
+            url = remote
+            if uret[0] == 0:
+                url = uret[1].strip()
 
+            content.append('')
             content.append('Head: %s' % self.git.head_sha())
             content.append('Base: %s' % self.git.base_sha())
             content.append('Dest Branch: %s' % dest)
-            content.append('Remote: %s' % remote)
+            content.append('Remote: %s' % url)
             content.append('Remote Branch: %s' % branch)
             content.append('Status: %s' % "Passed" if status else "Failed")
-            content.append('\n\n\n')
+            content.append('\n')
             content.append(format_h1("Output log"))
             content.append(out)
+            content.append('\n')
             content.append(format_h1("Error log"))
             content.append(err)
 
-
             self.emailobj.send_email(' '.join(subject), '\n'.join(content))
+
+        def add_rrcache_msg(remote, branch):
+            if options["use-rr-cache"]:
+                if options['rr-cache']['upload-remote-cache']:
+                    rcoptions = options['rr-cache']['remote-cache-params']
+                    if len(rcoptions['upload-msg']) == 0:
+                        msg = rrupload_header if len(rrupload_header) > 0 else dest
+                        rcoptions['upload-msg'].append('rrcache: upload %s results of %s' % (mode, msg))
+                    if len(rcoptions['upload-msg']) == 1:
+                        rcoptions['upload-msg'].append('\n')
+                    uret = self.git.cmd('remote get-url %s' % remote)
+                    url = uret[1].strip() if uret[0] == 0 and len(uret[1]) > 0 else branch 
+                    rcoptions['upload-msg'].append("Includes %s resolution of %s" % (mode, url))
 
         if options["use-rr-cache"]:
             self._config_rr_cache(options["rr-cache"])
@@ -301,6 +341,7 @@ class KernelInteg(object):
             ret = 0, '', ''
             if mode == "merge":
                 self.git.cmd("checkout", dest)
+                self.logger.info(merge_cmd(remote, branch, options['no-ff'], options['add-log']))
                 ret = self.git.cmd(merge_cmd(remote, branch, options['no-ff'], options['add-log']))
             elif mode == "rebase":
                 self.git.cmd("checkout", remote + '/' + branch if remote !='' else branch)
@@ -327,6 +368,7 @@ class KernelInteg(object):
                                 continue
                             else:
                                 break
+            add_rrcache_msg(remote, branch)
 
             if mode == "rebase" and not self.git.inprogress():
                 self.git.cmd("branch", '-D', dest)
@@ -399,7 +441,11 @@ class KernelInteg(object):
                 if len(merge_list) > 0:
                     self._merge_branches(dest_repo['merge-mode'], merge_list,
                                          dest_repo['local-branch'],
-                                         dest_repo['merge-options'])
+                                         dest_repo['merge-options'],
+                                         repo['send-email'],
+                                         repo['email-prefix'],
+                                         repo['repo-name'])
+                dest_branches.append(dest_repo['local-branch'])
         except Exception as e:
             self.logger.error(e, exc_info=True)
             for branch in dest_branches:
@@ -412,16 +458,19 @@ class KernelInteg(object):
             if len(repo['dest-list']) > 1:
                 base_repo = repo['dest-list'][0]
                 for dest_repo in repo['dest-list']:
-                    ret, out, err = self.git('diff', base_repo, dest_repo)
+                    ret, out, err = self.git.cmd('diff', base_repo['local-branch'], dest_repo['local-branch'])
                     if ret != 0:
                         status = False
                         break
                     else:
                         if len(out) > 0:
                             status = False
-                            self.logger.error("Destination branche %s!=%s" %
+                            self.logger.error("Destination branches %s!=%s" %
                                               (base_repo['local-branch'], dest_repo['local-branch']))
                             break
+                        else:
+                            self.logger.info("Destination branches %s==%s" %
+                                              (base_repo['local-branch'], dest_repo['local-branch']))
         else:
             self.logger.warn("Skipping destination branch comparison")
 
@@ -433,6 +482,46 @@ class KernelInteg(object):
                     self._upload_repo(dest_repo['local-branch'], upload_options)
         else:
             self.logger.warn("Skipping destination branch upload")
+
+        if repo['send-email']:
+            subject = [] if len(repo['email-prefix']) == 0 else [repo['email-prefix']]
+            content = []
+
+            subject.append("integration")
+
+            if status:
+                subject.append('passed')
+            else:
+                subject.append('failed')
+            
+            content.append(format_h1("This repo integration includes:"))
+            content.append(format_h1("Following source branches:"))
+            for rname, rbranch in merge_list:
+                url = rname
+                if len(rname) == 0:
+                    rname = 'local-branch'
+                else:
+                    uret = self.git.cmd('remote get-url %s' % rname)
+                    if uret[0] == 0:
+                      rname = uret[1].strip()
+                content.append('Remote: %s' % rname)
+                content.append('Branch: %s' % rbranch)
+                content.append('')
+
+            content.append('')
+            content.append(format_h1("Following destination branches:"))
+
+            for dest_repo in repo['dest-list']:
+                content.append('Branch: %s' % dest_repo['local-branch'])
+                content.append('Merge Mode: %s' % dest_repo['merge-mode'])
+                if dest_repo['upload-copy'] is True:
+                    content.append('Uploaded branch to,')
+                    upload_options = dest_repo['upload-options']
+                    content.append('Upload Remote: %s' % upload-options['url'])
+                    content.append('Upload Branch: %s' % upload-options['branch'])
+                    content.append('')
+ 
+            self.emailobj.send_email(' '.join(subject), '\n'.join(content))
 
         return status
 

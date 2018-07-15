@@ -46,25 +46,26 @@
                         "email-prefix": "Merge issues in coe/usb/xhci-usb",
                         "use-rr-cache": true,
                         "rr-cache": {
-                            "use-remote-cache": false,
-                            "upload-remote-cache": false,
+                            "use-remote-cache": true,
+                            "upload-remote-cache": true,
                             "use-auto-merge": true,
                             "remote-cache-params": {
                                 "url": "tracker",
                                 "remote-dir": ".",
-                                "branch": "sandbox-skuppusw/test/usb/rrcache",
+                                "branch": "sandbox-skuppusw/dmtest/usb/rrcache",
                                 "username": "",
                                 "password": "",
                                 "sync-protocol": "git",
                                 "sync-options": [],
-                                "upload-options": []
+                                "upload-options": [],
+                                "upload-msg": ["rrcache: usb: update rebase resolution of tracker/coe/usb/xhci-usb"]
                             }
                         }
                     },
                     "upload-options": {
                         "mode": "force-push",
                         "url": "tracker",
-                        "branch": "sandbox-skuppusw/test/usb/xhci-usb"
+                        "branch": "sandbox-skuppusw/dmtest/usb/xhci-usb"
                     }
                 }
             ]
@@ -101,19 +102,20 @@
                             "remote-cache-params": {
                                 "url": "tracker",
                                 "remote-dir": ".",
-                                "branch": "sandbox-skuppusw/test/usb/rrcache",
+                                "branch": "sandbox-skuppusw/dmtest/usb/rrcache",
                                 "username": "",
                                 "password": "",
                                 "sync-protocol": "git",
                                 "sync-options": [],
-                                "upload-options": []
+                                "upload-options": [],
+                                "upload-msg": ["rrcache: usb: update rebase resolution of tracker/coe/usb/typec-usb"]
                             }
                         }
                     },
                     "upload-options": {
                         "mode": "force-push",
                         "url": "tracker",
-                        "branch": "sandbox-skuppusw/test/usb/typec-usb"
+                        "branch": "sandbox-skuppusw/dmtest/usb/typec-usb"
                     }
                 }
             ]
@@ -150,25 +152,29 @@
                             "remote-cache-params": {
                                 "url": "tracker",
                                 "remote-dir": ".",
-                                "branch": "sandbox-skuppusw/test/usb/rrcache",
+                                "branch": "sandbox-skuppusw/dmtest/usb/rrcache",
                                 "username": "",
                                 "password": "",
                                 "sync-protocol": "git",
                                 "sync-options": [],
-                                "upload-options": []
+                                "upload-options": [],
+                                "upload-msg": ["rrcache: usb: update rebase resolution of tracker/coe/usb/gadget-usb"]
                             }
                         }
                     },
                     "upload-options": {
                         "mode": "force-push",
                         "url": "tracker",
-                        "branch": "sandbox-skuppusw/test/usb/gadget-usb"
+                        "branch": "sandbox-skuppusw/dmtest/usb/gadget-usb"
                     }
                 }
             ]
         },
         {
             "repo-name": "pkt-usb",
+            "repo-head": "",
+            "send-email": true,
+            "email-prefix": "PKT USB",
             "source-list": [
                 {
                     "use-local": false,
@@ -196,25 +202,29 @@
                             "remote-cache-params": {
                                 "url": "tracker",
                                 "remote-dir": ".",
-                                "branch": "sandbox-skuppusw/test/usb/rrcache",
+                                "branch": "sandbox-skuppusw/dmtest/usb/rrcache",
                                 "username": "",
                                 "password": "",
                                 "sync-protocol": "git",
                                 "sync-options": [],
-                                "upload-options": []
+                                "upload-options": [],
+                                "upload-msg": ["rrcache: usb: update rebase resolution of tracker/coe/usb/pkt-usb"]
                             }
                         }
                     },
                     "upload-options": {
                         "mode": "force-push",
                         "url": "tracker",
-                        "branch": "sandbox-skuppusw/test/usb/pkt-usb"
+                        "branch": "sandbox-skuppusw/dmtest/usb/pkt-usb"
                     }
                 }
             ]
         },
         {
             "repo-name": "usb-staging",
+            "repo-head": "",
+            "send-email": true,
+            "email-prefix": "USB staging",
             "source-list": [
                 {
                     "use-local": true,
@@ -243,9 +253,43 @@
             ],
             "dest-list": [
                 {
-                    "local-branch": "dev/staging/usb",
+                    "local-branch": "dev/staging/rebase-usb",
                     "merge-mode": "rebase",
-                    "test-branch": true,
+                    "test-branch": false,
+                    "upload-copy": false,
+                    "merge-options": {
+                        "no-ff": true,
+                        "add-log": true,
+                        "send-email": true,
+                        "email-prefix": "Rebase issues in dev/staging/usb",
+                        "use-rr-cache": true,
+                        "rr-cache": {
+                            "use-remote-cache": true,
+                            "upload-remote-cache": true,
+                            "use-auto-merge": true,
+                            "remote-cache-params": {
+                                "url": "tracker",
+                                "remote-dir": ".",
+                                "branch": "sandbox-skuppusw/dmtest/usb/rrcache",
+                                "username": "",
+                                "password": "",
+                                "sync-protocol": "git",
+                                "sync-options": [],
+                                "upload-options": [],
+                                "upload-msg": ["rrcache: usb: update rebase resolution of tracker/usb/dev/staging"]
+                            }
+                        }
+                    },
+                    "upload-options": {
+                        "mode": "force-push",
+                        "url": "tracker",
+                        "branch": "sandbox-skuppusw/dmtest/usb/staging"
+                    }
+                },
+                {
+                    "local-branch": "dev/staging/merge-usb",
+                    "merge-mode": "merge",
+                    "test-branch": false,
                     "upload-copy": false,
                     "merge-options": {
                         "no-ff": true,
@@ -254,25 +298,26 @@
                         "email-prefix": "Merge issues in dev/staging/usb",
                         "use-rr-cache": true,
                         "rr-cache": {
-                            "use-remote-cache": false,
-                            "upload-remote-cache": false,
+                            "use-remote-cache": true,
+                            "upload-remote-cache": true,
                             "use-auto-merge": true,
                             "remote-cache-params": {
                                 "url": "tracker",
                                 "remote-dir": ".",
-                                "branch": "sandbox-skuppusw/test/usb/rrcache",
+                                "branch": "sandbox-skuppusw/dmtest/usb/rrcache",
                                 "username": "",
                                 "password": "",
                                 "sync-protocol": "git",
                                 "sync-options": [],
-                                "upload-options": []
+                                "upload-options": [],
+                                "upload-msg": ["rrcache: usb: update merge resolution of tracker/usb/dev/staging"]
                             }
                         }
                     },
                     "upload-options": {
                         "mode": "force-push",
                         "url": "tracker",
-                        "branch": "sandbox-skuppusw/test/usb/staging"
+                        "branch": "sandbox-skuppusw/dmtest/usb/staging"
                     }
                 }
             ]

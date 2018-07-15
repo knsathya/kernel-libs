@@ -29,10 +29,6 @@ from build_kernel import BuildKernel, is_valid_kernel
 from decorators import format_h1
 from pyshell import PyShell, GitShell
 
-RESULT_SCHEMA = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'schema/kernel-results-schema.json')
-TEST_SCHEMA = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'schema/kernel-test-schema.json')
-TEST_CONFIG = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'config/kernel-test-sample.json')
-
 CHECK_PATCH_SCRIPT='scripts/checkpatch.pl'
 
 supported_configs = ['allyesconfig', 'allmodconfig', 'allnoconfig', 'defconfig', 'randconfig']
@@ -160,7 +156,7 @@ class KernelResults(object):
         if warning_count is not None:
             self.results["checkpatch"]["warning_count"] = warning_count
         if error_count is not None:
-            self.results["checkpatch"]["error_count"] = warning_count
+            self.results["checkpatch"]["error_count"] = error_count
 
     def update_kernel_params(self, version=None, branch=None, base=None, head=None):
         if version is not None:
@@ -367,7 +363,7 @@ class KernelTest(object):
 
         return status
 
-    def compile(self, arch='', config='', cc='', cflags=[], name='', cfg=None):
+    def _compile(self, arch='', config='', cc='', cflags=[], name='', cfg=None):
 
         custom_config = False
 
@@ -399,13 +395,26 @@ class KernelTest(object):
 
         ret, out, err = kobj.make_kernel()
 
-        warning_count =len(filter(lambda x: True if "warning:" in x else False, out.split('\n')))
-        error_count = len(filter(lambda x: True if "error:" in x else False, out.split('\n')))
+        def parse_results(outputlog, errorlog, status):
+            data = errorlog.split('\n')
+
+            warning_count = len(filter(lambda x: True if "warning:" in x else False, data))
+            error_count = len(filter(lambda x: True if "error:" in x else False, data))
+
+            return status, warning_count, error_count
 
         status = True if ret == 0 else False
 
-        if name is None or len(name) == 0:
-            name =  config
+        if not status:
+            self.logger.error(err)
+
+        return parse_results(out, err, status)
+
+    def compile(self, arch='', config='', cc='', cflags=[], name='', cfg=None):
+
+        status, warning_count, error_count = self._compile(arch, config, cc, cflags, name, cfg)
+
+        name = config if name is None or len(name) == 0 else name
 
         self.resobj.update_compile_test_results(arch, name, status, warning_count, error_count)
 
@@ -421,7 +430,13 @@ class KernelTest(object):
         if len(filter(lambda x: True if re.match(r'CHECK=(.*)?sparse(.*)?', x) else False, cflags)) == 0:
             sparse_flags.append('CHECK="/usr/bin/sparse"')
 
-        return self.compile(arch, config, cc, sparse_flags + cflags, name, cfg)
+        status, warning_count, error_count = self._compile(arch, config, cc, sparse_flags + cflags, name, cfg)
+
+        name = config if name is None or len(name) == 0 else name
+
+        self.resobj.update_sparse_test_results(arch, name, status, warning_count, error_count)
+
+        return status
 
     def smatch(self, arch='', config='', cc='', cflags=[], name='', cfg=None):
 
@@ -433,7 +448,13 @@ class KernelTest(object):
         if len(filter(lambda x: True if re.match(r'CHECK=(.*)?smatch(.*)?', x) else False, cflags)) == 0:
             smatch_flags.append('CHECK="smatch -p=kernel"')
 
-        return self.compile(arch, config, cc, smatch_flags + cflags, name, cfg)
+        status, warning_count, error_count = self._compile(arch, config, cc, smatch_flags + cflags, name, cfg)
+
+        name = config if name is None or len(name) == 0 else name
+
+        self.resobj.update_smatch_test_results(arch, name, status, warning_count, error_count)
+
+        return status
 
 
     def compile_list(self, arch='', config_list=[], cc='', cflags=[], name='', cfg=None):
@@ -476,8 +497,8 @@ class KernelTest(object):
 
         get_val = lambda x, y: getattr(self, y) if x is None else x
 
-        err_count = 0
-        warning_count = 0
+        gerrorcount = 0
+        gwarningcount = 0
 
         try:
             if self.valid_git is False:
@@ -504,18 +525,20 @@ class KernelTest(object):
             for index in range(1, int(count) + 1):
                 commit_range = str(self.head) + '~' + str(index) + '..' + str(self.head) + '~' + str(prev_index)
                 ret, out, err = self.sh.cmd(os.path.join(self.src, CHECK_PATCH_SCRIPT), '-g', commit_range)
-                error, warning = parse_results(out)
-                if error != 0 or warning != 0:
-                    self.logger.debug(out)
-                    self.logger.debug(err)
-                err_count += error
-                warning_count += warning
+                lerrorcount, lwarningcount = parse_results(out)
+                if lerrorcount != 0 or lwarningcount != 0:
+                    self.logger.info(out)
+                    self.logger.info(err)
+                gerrorcount = gerrorcount + int(lerrorcount)
+                gwarningcount = gwarningcount + int(lwarningcount)
+                self.logger.info("lerror:%d lwarning:%d gerror:%d gwarning:%d\n", lerrorcount, lwarningcount, gerrorcount, gwarningcount)
                 prev_index = index
         except Exception as e:
             self.logger.error(e)
+            self.resobj.update_checkpatch_results(False, gwarningcount, gerrorcount)
             return False
         else:
-            self.resobj.update_checkpatch_results(True, err_count, warning_count)
+            self.resobj.update_checkpatch_results(True, gwarningcount, gerrorcount)
             return True
 
     def print_results(self, test_type='all'):
@@ -526,137 +549,3 @@ class KernelTest(object):
 
     def dump_results(self, outfile):
         self.resobj.dump_results(outfile)
-
-def is_valid_dir(parser, arg):
-    if not os.path.isdir(arg):
-        yes = {'yes', 'y', 'ye', ''}
-        print 'The directory {} does not exist'.format(arg)
-        print 'Press y to create new directory'
-        choice = raw_input().lower()
-        if choice in yes:
-            os.makedirs(arg)
-        else:
-            parser.error('The directory {} does not exist'.format(arg))
-
-    return os.path.abspath(arg)
-
-def is_valid_json(parser, arg):
-    if not os.path.exists(arg):
-        with open(arg, 'w'):
-            pass
-
-    return os.path.abspath(arg)
-
-
-def add_cli_options(parser):
-
-    subparsers = parser.add_subparsers(help='Commands')
-    compile_parser = subparsers.add_parser('compile', help='Run compile test')
-    compile_parser.set_defaults(which='use_compile')
-    compile_parser.add_argument('arch', choices=supported_archs, help='Arch to be tested')
-    compile_parser.add_argument('--configs', default=[], nargs='*',
-                        dest='config_list',
-                        help='Choose configs in %s' % supported_configs)
-    compile_parser.add_argument('--cflags', default=[], nargs='*',
-                        dest='cflags',
-                        help='cflags')
-    compile_parser.add_argument('--cc', default='', dest='cc', help='Cross Compile')
-
-    sparse_parser = subparsers.add_parser('sparse', help='Run sparse test')
-    sparse_parser.set_defaults(which='use_sparse')
-    sparse_parser.add_argument('arch', choices=supported_archs, help='Arch to be tested')
-    sparse_parser.add_argument('--configs', default=[], nargs='*',
-                        dest='config_list',
-                        help='Choose configs in %s' % supported_configs)
-    sparse_parser.add_argument('--cflags', default=[], nargs='*',
-                        dest='cflags',
-                        help='cflags')
-    sparse_parser.add_argument('--cc', default='', dest='cc', help='Cross Compile')
-
-    smatch_parser = subparsers.add_parser('smatch', help='Run smatch test')
-    smatch_parser.set_defaults(which='use_smatch')
-    smatch_parser.add_argument('arch', choices=supported_archs, help='Arch to be tested')
-    smatch_parser.add_argument('--configs', default=[], nargs='*',
-                        dest='config_list',
-                        help='Choose configs in %s' % supported_configs)
-    smatch_parser.add_argument('--cflags', default=[], nargs='*',
-                        dest='cflags',
-                        help='cflags')
-    smatch_parser.add_argument('--cc', default='', dest='cc', help='Cross Compile')
-
-    checkpatch_parser = subparsers.add_parser('checkpatch', help='Run checkpatch test')
-    checkpatch_parser.set_defaults(which='use_checkpatch')
-
-    json_parser = subparsers.add_parser('use_json', help='Run json test')
-    json_parser.set_defaults(which='use_json')
-    json_parser.add_argument('config', action='store', default=TEST_CONFIG, help='Kernel test config json file')
-
-    parser.add_argument('-i', '--kernel-dir', action='store', dest='source_dir',
-                        type=lambda x: is_valid_dir(parser, x),
-                        default=os.getcwd(),
-                        help='Kerenl source directory')
-    parser.add_argument('-o', '--out-json', action='store', dest='out_json',
-                        type=lambda x: is_valid_json(parser, x),
-                        default=None,
-                        help='Kerenl output results json file')
-    parser.add_argument('--branch', default=None, dest='branch', help='Kernel branch name')
-    parser.add_argument('--head', default=None, dest='head', help='Head commit ID')
-    parser.add_argument('--base', default=None, dest='base', help='Base commit ID')
-    parser.add_argument('-l', '--log', action='store', dest='log_file',
-                        nargs='?',
-                        const=os.path.join(os.getcwd(), 'ktest.log'),
-                        help='Kernel test log file')
-    parser.add_argument('-d', '--debug', action='store_true', dest='debug',
-                        help='Enable debug option')
-
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format='%(message)s')
-
-    logger = logging.getLogger(__name__)
-
-    parser = argparse.ArgumentParser(description='Script used for running automated kerenl compilation testing')
-
-    add_cli_options(parser)
-
-    args = parser.parse_args()
-
-    if args.log_file is not None:
-        if not os.path.exists(args.log_file):
-            open(os.path.exists(args.log_file), 'w+').close()
-            hdlr = logging.FileHandler(args.log_file)
-            formatter = logging.Formatter('%(message)s')
-            hdlr.setFormatter(formatter)
-            logger.addHandler(hdlr)
-
-    if args.debug:
-            logger.setLevel(logging.DEBUG)
-
-    print args
-
-    obj= None
-
-    obj = KernelTest(src=args.source_dir, base=args.base, head=args.head, branch=args.branch, res_cfg=args.out_json,
-                     logger=logger)
-
-    if obj:
-        if args.which == 'use_compile':
-            obj.compile_list(args.arch, args.config_list, args.cc, args.cflags)
-        if args.which == 'use_sparse':
-            obj.sparse_list(args.arch, args.config_list, args.cc, args.cflags)
-        if args.which == 'use_smatch':
-            obj.smatch_list(args.arch, args.config_list, args.cc, args.cflags)
-        if args.which == 'use_checkpatch':
-            obj.run_checkpatch()
-        if args.which == 'use_json':
-            obj.run_test(cfg=os.path.abspath(args.config))
-
-        if args.out_json is not None:
-            obj.dump_results(args.out_json)
-
-        obj.print_results()
-
-
-    else:
-        logger.error("Invalid kernel output obj")
-
-

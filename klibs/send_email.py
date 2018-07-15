@@ -53,7 +53,6 @@ class Email(object):
             set_def = lambda x, y: self.cfg[x] if self.cfg[x] != "" else y
             self.cfgobj = JSONParser(self.schema, cfg, extend_defaults=True, os_env=True, logger=logger)
             self.cfg = self.cfgobj.get_cfg()
-            self.logger.debug(self.cfgobj.print_cfg())
 
             self.set_header(self.cfg["from"], self.cfg["to"], self.cfg["cc"], self.cfg["bcc"])
             self.set_smtp(self.cfg["smtp-server"], self.cfg["smtp-port"],
@@ -61,7 +60,9 @@ class Email(object):
                           self.cfg["smtp-password"])
     def _smtp_setup(self):
 
-        if self.smtp_server is None or not isinstance(self.smtp_server, basestring):
+        str_check = lambda x: x is not None and isinstance(x, basestring) and len(x) > 0
+
+        if not str_check(self.smtp_server):
             self.logger.error("Invalid SMTP server %s", self.smtp_server)
             return False
 
@@ -76,11 +77,11 @@ class Email(object):
 
         self.client_obj = smtplib.SMTP(host=self.smtp_server, port=self.smtp_port)
 
-        if self.auth is not None and self.auth in self.supported_auths and self.smtp_server != "localhost":
+        if str_check(self.auth) and self.auth in self.supported_auths and self.smtp_server != "localhost":
             if self.auth == 'TLS':
                 self.client_obj.starttls()
 
-        if self.username is not None and self.password is not None and self.smtp_server != "localhost":
+        if str_check(self.username) and str_check(self.password) and self.smtp_server != "localhost":
             self.client_obj.login(self.username, self.password)
 
         self.logger.debug("SMTP Server Open():%s port:%d\n", self.smtp_server, self.smtp_port)
@@ -152,7 +153,7 @@ class Email(object):
 
     def send_email(self, subject='', content=''):
 
-        self.logger.info("From: %s\nTo: %s\nCC: %s\nBCC: %s\nSubject: %s\n",
+        self.logger.debug("From: %s\nTo: %s\nCC: %s\nBCC: %s\nSubject: %s\n",
                          self._from, self._to, self._cc, self._bcc, subject)
 
         self._smtp_setup()
