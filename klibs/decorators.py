@@ -60,7 +60,7 @@ class EntryExit(Decorator):
         if hasattr(self.obj, 'logger'):
             self.obj.logger.debug(format_h1("%s() Entry" % name))
         else:
-            print format_h1("%s() Entry" % name)
+            print(format_h1("%s() Entry" % name))
 
         ret = self.func(*args, **kwargs)
 

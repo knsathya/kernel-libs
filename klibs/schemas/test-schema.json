@@ -157,6 +157,62 @@
                     "description": "Checkpatch script path",
                     "type": "string",
                     "default": "scripts/checkpatch.pl"
+                },
+                "base": {
+                    "type": "object",
+                    "properties": {
+                        "auto": {
+                            "type": "boolean",
+                            "default": true
+                        },
+                        "auto-mode": {
+                            "enum": [
+                                "last-upstream",
+                                "last-tag",
+                                "head-commit",
+                                "base-commit",
+                                "grep-comit",
+                                "grep-tag"
+                            ],
+                            "default": "last-upstream"
+                        },
+                        "grep-input": {
+                            "type": "string",
+                            "default": ""
+                        },
+                        "value": {
+                            "type": "string",
+                            "default": ""
+                        }
+                    }
+                },
+                "head": {
+                    "type": "object",
+                    "properties": {
+                        "auto": {
+                            "type": "boolean",
+                            "default": true
+                        },
+                        "auto-mode": {
+                            "enum": [
+                                "last-upstream",
+                                "last-tag",
+                                "head-commit",
+                                "base-commit",
+                                "grep-comit",
+                                "grep-tag"
+                            ],
+                            "default": "head-commit"
+                        },
+                        "grep-input": {
+                            "type": "string",
+                            "default": ""
+                        },
+                        "value": {
+                            "type": "string",
+                            "default": ""
+                        }
+                    }
                 }
             }
         },

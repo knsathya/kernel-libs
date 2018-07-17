@@ -33,7 +33,7 @@ from build_kernel import is_valid_kernel
 
 class KernelRelease(object):
 
-    def __init__(self, src=os.getcwd(), cfg=None, logger=None):
+    def __init__(self, src, cfg=None, logger=None):
 
         self.logger = logger or logging.getLogger(__name__)
         self.src = os.path.abspath(src)
@@ -97,7 +97,7 @@ class KernelRelease(object):
 
                 base = params["base"]["value"]
                 if params["base"]["auto"]:
-                    base = self.git.cmd('describe --abbrev=0 --tags')
+                    base = self.git.cmd('describe --abbrev=0 --tags')[1]
                 base = str_none(base)
 
                 head = params["head"]["value"]

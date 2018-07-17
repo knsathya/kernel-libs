@@ -388,7 +388,24 @@ class KernelTest(object):
         if checkpatch_config is not None and checkpatch_config["enable"] is True:
             if len(checkpatch_config["source"]) > 0:
                 self.checkpatch_source = checkpatch_config["source"]
-            status &= self.run_checkpatch()[0]
+            head = None
+            base = None
+            def get_sha(_type='head'):
+                if checkpatch_config[_type]['auto']:
+                    if checkpatch_config[_type]['auto-mode'] == "last-upstream":
+                        return self.git.cmd('describe --abbrev=0 --match "v[0-9]*" --tags')[1].strip()
+                    elif checkpatch_config[_type]['auto-mode'] == "last-tag":
+                        return self.git.cmd('describe --abbrev=0 --tags')[1].strip()
+                    elif checkpatch_config[_type]['auto-mode'] == "head-commit":
+                        return self.git.head_sha()
+                    elif checkpatch_config[_type]['auto-mode'] == "base-commit":
+                        return self.git.base_sha()
+                elif len(checkpatch_config[_type]['value']) > 0:
+                    return checkpatch_config[_type]['value'].strip()
+                else:
+                    return getattr(self, _type)
+
+            status &= self.run_checkpatch(get_sha(), get_sha('base'))
 
         output_config = self.cfg.get("output-config", None)
 
@@ -396,19 +413,18 @@ class KernelTest(object):
             output_temp = tempfile.mkdtemp("_dir", "output_")
 
             # Commit the results file  used back to server.
-            if output_config["sync-mode"] == ".git":
-                ogit = GitShell(wd=config_temp, init=True, remote=[('origin', output_config["url"])], fetch_all=True,
+            if output_config["sync-mode"] == "git":
+                ogit = GitShell(wd=output_temp, init=True, remote_list=[('origin', output_config["url"])], fetch_all=True,
                                 logger=self.logger)
-                cgit.cmd("clean -xdf")
-                cgit.cmd("checkout %s/%s" % ('origin',  output_config["branch"]))
+                ogit.cmd("clean -xdf")
+                ogit.cmd("checkout %s/%s" % ('origin',  output_config["branch"]))
                 output_file = os.path.join(output_temp,  output_config["remote-dir"], output_config["name"])
 
                 if not os.path.exists(os.path.dirname(output_file)):
                     os.makedirs(os.path.dirname(output_file))
 
                 self.resobj.dump_results(outfile=output_file)
-
-                ogit.cmd('add %s' % output_file)
+                ogit.cmd('add %s' % os.path.join(output_config["remote-dir"], output_config["name"]))
 
                 #Create the commit message and upload it
                 with tempfile.NamedTemporaryFile() as msg_file:
@@ -422,6 +438,7 @@ class KernelTest(object):
 
                 rbranch = output_config["branch"]
 
+
                 if output_config["mode"] == 'refs-for':
                     rbranch = 'refs/for/%s' % output_config["branch"]
 
@@ -431,7 +448,6 @@ class KernelTest(object):
                     ogit.cmd('push', 'origin', 'HEAD:%s' % rbranch)
 
             shutil.rmtree(output_temp, ignore_errors=True)
-
 
         shutil.rmtree(config_temp, ignore_errors=True)
 
@@ -563,13 +579,13 @@ class KernelTest(object):
 
         return True
 
-    def run_checkpatch(self):
+    def run_checkpatch(self, head=None, base=None):
 
         self.logger.info(format_h1("Runing checkpatch script", tab=2))
 
         self.enable_checkpatch = True
-
-        get_val = lambda x, y: getattr(self, y) if x is None else x
+        head = self.head if head is None else head
+        base = self.base if base is None else base
 
         gerrorcount = 0
         gwarningcount = 0
@@ -581,11 +597,11 @@ class KernelTest(object):
             if not os.path.exists(os.path.join(self.src, CHECK_PATCH_SCRIPT)):
                 raise Exception("Invalid checkpatch script")
 
-            ret, count, err = self.git.cmd('rev-list', '--count',  str(self.base) + '..'+ str(self.head))
+            ret, count, err = self.git.cmd('rev-list', '--count',  str(base) + '..'+ str(head))
             if ret != 0:
                 raise Exception("git rev-list command failed")
 
-            self.logger.debug("Number of patches between %s..%s is %d", self.base, self.head, int(count))
+            self.logger.info("Number of patches between %s..%s is %d", base, head, int(count))
 
             def parse_results(data):
                 regex = r"total: ([0-9]*) errors, ([0-9]*) warnings,"
@@ -596,8 +612,9 @@ class KernelTest(object):
                 return 0, 0
 
             prev_index = 0
+
             for index in range(1, int(count) + 1):
-                commit_range = str(self.head) + '~' + str(index) + '..' + str(self.head) + '~' + str(prev_index)
+                commit_range = str(head) + '~' + str(index) + '..' + str(head) + '~' + str(prev_index)
                 ret, out, err = self.sh.cmd(os.path.join(self.src, CHECK_PATCH_SCRIPT), '-g', commit_range)
                 lerrorcount, lwarningcount = parse_results(out)
                 if lerrorcount != 0 or lwarningcount != 0:
@@ -605,7 +622,7 @@ class KernelTest(object):
                     self.logger.info(err)
                 gerrorcount = gerrorcount + int(lerrorcount)
                 gwarningcount = gwarningcount + int(lwarningcount)
-                self.logger.info("lerror:%d lwarning:%d gerror:%d gwarning:%d\n", lerrorcount, lwarningcount, gerrorcount, gwarningcount)
+                self.logger.debug("lerror:%d lwarning:%d gerror:%d gwarning:%d\n", lerrorcount, lwarningcount, gerrorcount, gwarningcount)
                 prev_index = index
         except Exception as e:
             self.logger.error(e)
