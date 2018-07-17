@@ -20,8 +20,9 @@
 import os
 import logging, logging.config
 import collections
-import argparse
+import tempfile
 import re
+import shutil
 import pkg_resources
 
 from jsonparser import JSONParser
@@ -241,7 +242,6 @@ class KernelResults(object):
         fobj = open(outfile, 'w+')
         fobj.truncate()
         fobj.close()
-        raw_input("Continue to write to file")
         self.cfgobj.dump_cfg(outfile)
 
 class KernelTest(object):
@@ -310,7 +310,36 @@ class KernelTest(object):
 
         status = True
 
+        config_temp = tempfile.mkdtemp("_dir", "config_")
+        cgit = GitShell(wd=config_temp, init=True, logger=self.logger)
+
         static_config = self.cfg.get("static-config", None)
+
+        # If there is a config in remote source, fetch it and give the local path.
+        def get_configsrc(options):
+
+            if options is None or not isinstance(options, collections.Mapping):
+                return None
+
+            if len(options["url"]) == 0:
+                return os.path.abspath(os.path.join(options["remote-dir"], options["name"]))
+
+            if options["sync-mode"] == "git":
+                cgit.cmd("clean -xdf")
+                remote_list = cgit.cmd("remote")[1].split('\n')
+                rname = 'origin'
+                for remote in remote_list:
+                    rurl = cgit.cmd("remote get-url %s" % remote)[1].strip()
+                    if rurl == options["url"]:
+                        rname =  remote
+                        break
+                cgit.add_remote(rname, options["url"])
+                cgit.cmd("checkout %s/%s" % (rname, options["branch"]))
+
+                return os.path.abspath(os.path.join(config_temp, options["remote-dir"], options["name"]))
+
+
+            return None
 
         def static_test(obj, cobj, config):
             status = True
@@ -318,17 +347,17 @@ class KernelTest(object):
             if cobj["compile-test"]:
                 current_status = self.compile(obj["arch_name"], config, obj["compiler_options"]["CC"],
                                               obj["compiler_options"]["cflags"],
-                                              cobj.get('name', None), cobj.get('source', None))
+                                              cobj.get('name', None), get_configsrc(cobj.get('source-params', None)))
                 if current_status is False:
                     self.logger.error("Compilation of arch:%s config:%s failed\n" % (obj["arch_name"],
                                                                                      cobj.get('name', config)))
 
                 status &= current_status
 
-            if obj[config]["sparse-test"]:
+            if cobj["sparse-test"]:
                 current_status = self.sparse(obj["arch_name"], config, obj["compiler_options"]["CC"],
                                              obj["compiler_options"]["cflags"],
-                                             cobj.get('name', None), cobj.get('source', None))
+                                             cobj.get('name', None), get_configsrc(cobj.get('source-params', None)))
                 if current_status is False:
                     self.logger.error("Sparse test of arch:%s config:%s failed\n" % (obj["arch_name"],
                                                                                      cobj.get('name', config)))
@@ -360,6 +389,51 @@ class KernelTest(object):
             if len(checkpatch_config["source"]) > 0:
                 self.checkpatch_source = checkpatch_config["source"]
             status &= self.run_checkpatch()[0]
+
+        output_config = self.cfg.get("output-config", None)
+
+        if output_config is not None and output_config["enable"] is True and len(output_config["url"]) > 0:
+            output_temp = tempfile.mkdtemp("_dir", "output_")
+
+            # Commit the results file  used back to server.
+            if output_config["sync-mode"] == ".git":
+                ogit = GitShell(wd=config_temp, init=True, remote=[('origin', output_config["url"])], fetch_all=True,
+                                logger=self.logger)
+                cgit.cmd("clean -xdf")
+                cgit.cmd("checkout %s/%s" % ('origin',  output_config["branch"]))
+                output_file = os.path.join(output_temp,  output_config["remote-dir"], output_config["name"])
+
+                if not os.path.exists(os.path.dirname(output_file)):
+                    os.makedirs(os.path.dirname(output_file))
+
+                self.resobj.dump_results(outfile=output_file)
+
+                ogit.cmd('add %s' % output_file)
+
+                #Create the commit message and upload it
+                with tempfile.NamedTemporaryFile() as msg_file:
+                    commit_msg  = '\n'.join(output_config["upload-msg"])
+                    # Use default msg if its not given in config file.
+                    if len(commit_msg) == 0:
+                        commit_msg = "test: Update latest results"
+                    msg_file.write(commit_msg)
+                    msg_file.seek(0)
+                    ogit.cmd('commit -s -F %s' % msg_file.name)
+
+                rbranch = output_config["branch"]
+
+                if output_config["mode"] == 'refs-for':
+                    rbranch = 'refs/for/%s' % output_config["branch"]
+
+                if not ogit.valid_branch('origin', output_config["branch"]) or output_config["mode"] == 'force-push':
+                    ogit.cmd('push', '-f', 'origin', 'HEAD:%s' % rbranch)
+                else:
+                    ogit.cmd('push', 'origin', 'HEAD:%s' % rbranch)
+
+            shutil.rmtree(output_temp, ignore_errors=True)
+
+
+        shutil.rmtree(config_temp, ignore_errors=True)
 
         return status
 

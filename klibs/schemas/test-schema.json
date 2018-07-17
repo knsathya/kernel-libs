@@ -76,9 +76,55 @@
                                                     "type": "string",
                                                     "description": "Name of the custom config"
                                                 },
-                                                "source": {
-                                                    "type": "string",
-                                                    "description": "Custom config source file"
+                                                "source-params": {
+                                                    "type": "object",
+                                                    "description": "Custom config source params.",
+                                                    "properties": {
+                                                        "name": {
+                                                            "type": "string",
+                                                            "description": "Name of the config file",
+                                                            "default": ""
+                                                        },
+                                                        "url": {
+                                                            "type": "string",
+                                                            "description": "git or http, https link",
+                                                            "default": ""
+                                                        },
+                                                        "remote-dir": {
+                                                            "type": "string",
+                                                            "description": "Relative path to config file",
+                                                            "default": "."
+                                                        },
+                                                        "branch": {
+                                                            "type": "string",
+                                                            "branch": "Name of the git branch",
+                                                            "default": "."
+                                                        },
+                                                        "username": {
+                                                            "type": "string",
+                                                            "default": ""
+                                                        },
+                                                        "password": {
+                                                            "type": "string",
+                                                            "default": ""
+                                                        },
+                                                        "sync-mode": {
+                                                            "enum": [
+                                                                "smb",
+                                                                "rsync",
+                                                                "wget",
+                                                                "git"
+                                                            ],
+                                                            "default": "git"
+                                                        },
+                                                        "sync-options": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            },
+                                                            "default": []
+                                                        }
+                                                    }
                                                 },
                                                 "defaction": {
                                                     "type": "string",
@@ -113,6 +159,76 @@
                     "default": "scripts/checkpatch.pl"
                 }
             }
+        },
+        "output-config": {
+            "type": "object",
+            "properties": {
+                "enable": {
+                    "description": "Enable pushing test results",
+                    "type": "boolean",
+                    "default": false
+                },
+                "name": {
+                    "type": "string",
+                    "description": "Name of the output JSON file",
+                    "default": ""
+                },
+                "url": {
+                    "type": "string",
+                    "description": "git or http, https link",
+                    "default": ""
+                },
+                "remote-dir": {
+                    "type": "string",
+                    "description": "Relative path to config file",
+                    "default": "."
+                },
+                "branch": {
+                    "type": "string",
+                    "branch": "Name of the git branch",
+                    "default": "."
+                },
+                "mode": {
+                    "description": "Push model to be used during repository upload",
+                    "enum": [
+                        "force-push",
+                        "push",
+                        "refs-for"
+                    ],
+                    "default": "push"
+                },
+                "username": {
+                    "type": "string",
+                    "default": ""
+                },
+                "password": {
+                    "type": "string",
+                    "default": ""
+                },
+                "sync-mode": {
+                    "enum": [
+                        "smb",
+                        "rsync",
+                        "wget",
+                        "git"
+                    ],
+                    "default": "git"
+                },
+                "upload-options": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": []
+                },
+                "upload-msg": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": []
+                }
+            }
         }
     },
     "default": {
@@ -131,6 +247,9 @@
             ]
         },
         "checkpatch-config": {
+            "enable": false
+        },
+        "output-config": {
             "enable": false
         }
     },
