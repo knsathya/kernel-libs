@@ -26,7 +26,7 @@ with open('LICENSE') as f:
     license = f.read()
 
 setup(name='klibs',
-      version='0.1',
+      version='0.2',
       description='Python support classes fo automating kernel build/test',
       long_description=readme,
       classifiers=[

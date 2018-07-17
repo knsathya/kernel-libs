@@ -25,8 +25,8 @@ from klibs import KernelRelease
 def is_valid_dir(parser, arg):
     if not os.path.isdir(arg):
         yes = {'yes', 'y', 'ye', ''}
-        print 'The directory {} does not exist'.format(arg)
-        print 'Press y to create new directory'
+        print('The directory {} does not exist'.format(arg))
+        print('Press y to create new directory')
         choice = raw_input().lower()
         if choice in yes:
             os.makedirs(arg)
@@ -118,7 +118,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print args
+    print(args)
 
     if args.log_file is not None:
         if not os.path.exists(args.log_file):

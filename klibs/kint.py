@@ -361,7 +361,7 @@ class KernelInteg(object):
                     send_email(remote, branch, False, ret[1], ret[2])
 
                     while True:
-                        print 'Please resolve the issue and then press y to continue'
+                        print('Please resolve the issue and then press y to continue')
                         choice = raw_input().lower()
                         if choice in ['yes', 'y', 'ye', '']:
                             if self.git.inprogress():
