@@ -271,15 +271,15 @@ class KernelTest(object):
                 os.makedirs(self.src)
             if not self.git.valid():
                 self.git.init()
-            self.git.add_remote(rname, rurl)
-            self.git.cmd('fetch %s' % rname)
+            self.git.add_remote(self.rname, rurl)
+            self.git.cmd('fetch %s' % self.rname)
             self.branch = self.rname + '/' + self.branch
 
         self.valid_git = True if self.git.valid() else False
 
         if self.valid_git:
             if self.branch is not None and len(self.branch) > 0:
-                if self.git.cmd('checkout', branch)[0] != 0:
+                if self.git.cmd('checkout', self.branch)[0] != 0:
                     self.logger.error("Git checkout command failed in %s", self.src)
                     return
             else:

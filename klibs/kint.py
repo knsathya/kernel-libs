@@ -498,6 +498,7 @@ class KernelInteg(object):
             
             content.append(format_h1("This repo integration includes:"))
             content.append(format_h1("Following source branches:"))
+            content.append('')
             for rname, rbranch in merge_list:
                 url = rname
                 if len(rname) == 0:
@@ -510,8 +511,8 @@ class KernelInteg(object):
                 content.append('Branch: %s' % rbranch)
                 content.append('')
 
-            content.append('')
             content.append(format_h1("Following destination branches:"))
+            content.append('')
 
             for dest_repo in repo['dest-list']:
                 content.append('Branch: %s' % dest_repo['local-branch'])
@@ -519,7 +520,12 @@ class KernelInteg(object):
                 if dest_repo['upload-copy'] is True:
                     content.append('Uploaded branch to,')
                     upload_options = dest_repo['upload-options']
-                    content.append('Upload Remote: %s' % upload_options['url'])
+                    rurl = upload_options['url']
+                    for ritem in self.remote_list:
+                        if ritem['name'] == rurl:
+                            rurl = ritem['url']
+                            break
+                    content.append('Upload Remote: %s' % rurl)
                     content.append('Upload Branch: %s' % upload_options['branch'])
                     content.append('')
  
