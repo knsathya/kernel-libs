@@ -392,9 +392,11 @@ class KernelInteg(object):
         """
         self.logger.info(format_h1("Uploading %s", tab=2) % branch_name)
 
-        self.git.push(self, branch_name, upload_options['url'], upload_options['branch'],
-                      force=(upload_options['mode'] == 'force-push'),
-                      use_refs=(upload_options['mode'] == 'refs-for'))
+        _force = True if upload_options['mode'] == 'force-push' else False
+        _use_refs = True if upload_options['mode'] == 'refs-for' else False
+
+        self.git.push(branch_name, upload_options['url'], upload_options['branch'], force=_force,
+                      use_refs=_use_refs)
 
     def _create_repo(self, repo):
         """
@@ -517,8 +519,8 @@ class KernelInteg(object):
                 if dest_repo['upload-copy'] is True:
                     content.append('Uploaded branch to,')
                     upload_options = dest_repo['upload-options']
-                    content.append('Upload Remote: %s' % upload-options['url'])
-                    content.append('Upload Branch: %s' % upload-options['branch'])
+                    content.append('Upload Remote: %s' % upload_options['url'])
+                    content.append('Upload Branch: %s' % upload_options['branch'])
                     content.append('')
  
             self.emailobj.send_email(' '.join(subject), '\n'.join(content))
