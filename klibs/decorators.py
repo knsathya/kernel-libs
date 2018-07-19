@@ -67,6 +67,6 @@ class EntryExit(Decorator):
         if hasattr(self.obj, 'logger'):
             self.obj.logger.debug(format_h1("%s() Exit" % name))
         else:
-            print format_h1("%s() Exit" % name)
+            print(format_h1("%s() Exit" % name))
 
         return ret
