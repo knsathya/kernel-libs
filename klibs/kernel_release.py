@@ -27,9 +27,9 @@ import errno
 import traceback
 
 from jsonparser import JSONParser
-from decorators import format_h1
+from klibs import format_h1
 from pyshell import GitShell, PyShell
-from build_kernel import is_valid_kernel
+from klibs import is_valid_kernel
 
 class KernelRelease(object):
 

@@ -23,9 +23,9 @@ import tempfile
 from shutil import rmtree, move
 
 from jsonparser import JSONParser
-from decorators import format_h1
+from klibs import format_h1
 from pyshell import GitShell, PyShell
-from send_email import Email
+from klibs import Email
 
 
 class KernelInteg(object):

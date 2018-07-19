@@ -26,8 +26,8 @@ import shutil
 import pkg_resources
 
 from jsonparser import JSONParser
-from build_kernel import BuildKernel, is_valid_kernel
-from decorators import format_h1
+from klibs import BuildKernel, is_valid_kernel
+from klibs import format_h1
 from pyshell import PyShell, GitShell
 
 CHECK_PATCH_SCRIPT='scripts/checkpatch.pl'
