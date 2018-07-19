@@ -60,6 +60,19 @@
                         "type": "string",
                         "default": ""
                     },
+                    "compare-dest": {
+                        "description": "Enable if you want to compare dest branches",
+                        "type": "boolean",
+                        "default": true
+                    },
+                    "compare-resmode": {
+                        "description": "Select how you want to handle the compare resolution",
+                        "enum": [
+                            "ignore",
+                            "fail"
+                        ],
+                        "default": "fail"
+                    },
                     "source-list": {
                         "description": "List of the branches to be merged into the current repository",
                         "type": "array",

@@ -481,19 +481,22 @@ class KernelInteg(object):
             self.logger.info("Repo %s creation successfull" % repo['repo-name'])
 
         # Compare destination branches
-        if status is True:
+        if status is True and repo['compare-dest']:
             if len(repo['dest-list']) > 1:
                 base_repo = repo['dest-list'][0]
                 for dest_repo in repo['dest-list']:
                     ret, out, err = self.git.cmd('diff', base_repo['local-branch'], dest_repo['local-branch'])
                     if ret != 0:
-                        status = False
+                        if repo['compare-resmode'] == "fail":
+                            status = False
                         break
                     else:
                         if len(out) > 0:
-                            status = False
-                            self.logger.error("Destination branches %s!=%s" %
-                                              (base_repo['local-branch'], dest_repo['local-branch']))
+                            if repo['compare-resmode'] == "fail":
+                                status = False
+                            self.logger.error("Destination branches %s!=%s, resolution:%s" %
+                                              (base_repo['local-branch'], dest_repo['local-branch'],
+                                               repo['compare-resmode']))
                             break
                         else:
                             self.logger.info("Destination branches %s==%s" %
