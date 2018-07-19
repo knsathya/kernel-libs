@@ -16,8 +16,8 @@
 #
 #
 
-from build_kernel import BuildKernel, KernelConfig, is_valid_kernel, get_kernel_version
-from send_email import Email
-from kernel_release import KernelRelease
-from kernel_test import KernelTest, KernelResults, supported_configs, supported_archs, supported_oldconfigs
-from kint import KernelInteg
+from klibs.build_kernel import BuildKernel, KernelConfig, is_valid_kernel, get_kernel_version
+from klibs.send_email import Email
+from klibs.kernel_release import KernelRelease
+from klibs.kernel_test import KernelTest, KernelResults, supported_configs, supported_archs, supported_oldconfigs
+from klibs.kint import KernelInteg
