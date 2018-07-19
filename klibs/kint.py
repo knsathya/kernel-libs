@@ -270,7 +270,7 @@ class KernelInteg(object):
                 return ' '.join(['merge', '--abort'])
 
             if remote is not None and len(remote) > 0:
-                return ' '.join(['pull', ' '.join(options), rbranch])
+                return ' '.join(['pull', ' '.join(options), remote, rbranch])
             else:
                 return ' '.join(['merge', ' '.join(options), rbranch])
 
@@ -314,9 +314,11 @@ class KernelInteg(object):
             content.append('Status: %s' % "Passed" if status else "Failed")
             content.append('\n')
             content.append(format_h1("Output log"))
+            content.append('')
             content.append(out)
             content.append('\n')
             content.append(format_h1("Error log"))
+            content.append('')
             content.append(err)
 
             self.emailobj.send_email(' '.join(subject), '\n'.join(content))
@@ -332,7 +334,7 @@ class KernelInteg(object):
                         rcoptions['upload-msg'].append('\n')
                     uret = self.git.cmd('remote get-url %s' % remote)
                     url = uret[1].strip() if uret[0] == 0 and len(uret[1]) > 0 else branch 
-                    rcoptions['upload-msg'].append("Includes %s resolution of %s" % (mode, url))
+                    rcoptions['upload-msg'].append("Includes %s resolution of %s:%s" % (mode, url, branch))
 
         if options["use-rr-cache"]:
             self._config_rr_cache(options["rr-cache"])
@@ -348,7 +350,7 @@ class KernelInteg(object):
             elif mode == "replace":
                 ret = self.git.cmd("checkout", remote + '/' + branch if remote != '' else branch)
 
-            if self.git.inprogress() or ret != 0:
+            if self.git.inprogress() or ret[0] != 0:
                 if options["rr-cache"]["use-auto-merge"]:
                     if len(self.git.cmd('rerere diff')[1]) < 2:
                         if mode == "merge":
@@ -517,6 +519,7 @@ class KernelInteg(object):
                 content.append('Branch: %s' % dest_repo['local-branch'])
                 content.append('Merge Mode: %s' % dest_repo['merge-mode'])
                 if dest_repo['upload-copy'] is True:
+                    content.append('')
                     content.append('Uploaded branch to,')
                     upload_options = dest_repo['upload-options']
                     rurl = upload_options['url']

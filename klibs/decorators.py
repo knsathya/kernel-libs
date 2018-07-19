@@ -20,7 +20,7 @@ def format_h1(str='', width=64, fc='=', tab=0):
     else:
         out = str_dec(fc, 2) + str + str_dec(fc, 2)
 
-    return "\n" + str_dec('\t', tab) + out + str_dec('\t', tab)
+    return str_dec('\t', tab) + out + str_dec('\t', tab) + "\n"
 
 class Decorator(object):
     """
