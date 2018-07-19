@@ -341,7 +341,6 @@ class KernelInteg(object):
             ret = 0, '', ''
             if mode == "merge":
                 self.git.cmd("checkout", dest)
-                self.logger.info(merge_cmd(remote, branch, options['no-ff'], options['add-log']))
                 ret = self.git.cmd(merge_cmd(remote, branch, options['no-ff'], options['add-log']))
             elif mode == "rebase":
                 self.git.cmd("checkout", remote + '/' + branch if remote !='' else branch)
@@ -453,7 +452,7 @@ class KernelInteg(object):
             for branch in dest_branches:
                 self.git.cmd("branch", "-D", branch)[0]
         else:
-            self.logger.info("repo %s creation successfull" % repo['repo-name'])
+            self.logger.info("Repo %s creation successfull" % repo['repo-name'])
 
         # Compare destination branches
         if status is True:
