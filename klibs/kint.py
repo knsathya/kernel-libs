@@ -350,25 +350,49 @@ class KernelInteg(object):
             elif mode == "replace":
                 ret = self.git.cmd("checkout", remote + '/' + branch if remote != '' else branch)
 
-            if self.git.inprogress() or ret[0] != 0:
+            def null_diff():
+                dret = self.git.cmd('diff')
+                if dret[0] == 0 and len(dret[1]) == 0:
+                    return True
+
+                return False
+
+            def null_rdiff():
+                dret = self.git.cmd('rerere diff')
+                if dret[0] == 0 and len(dret[1]) < 2:
+                    return True
+
+                return False
+
+            def auto_resolve():
                 if options["rr-cache"]["use-auto-merge"]:
-                    if len(self.git.cmd('rerere diff')[1]) < 2:
+                    if null_rdiff() or null_diff():
                         if mode == "merge":
                             self.git.cmd('commit', '-as', '--no-edit')
+                            return True
                         elif mode == "rebase":
-                            self.git.cmd('rebase', '--continue')
+                            dret = self.git.cmd('diff', '--cached')
+                            if dret[0] == 0 and len(dret[1]) == 0:
+                                self.git.cmd('rebase', '--skip')
+                            else:
+                                self.git.cmd('rebase', '--continue')
+                            return True
+                return False
 
+            if self.git.inprogress() or ret[0] != 0:
+                # First try to auto resolve it.
+                auto_resolve()
+                # If problem still persist, ask for help.
                 if self.git.inprogress():
                     send_email(remote, branch, False, ret[1], ret[2])
-
                     while True:
-                        print('Please resolve the issue and then press y to continue')
-                        choice = raw_input().lower()
-                        if choice in ['yes', 'y', 'ye', '']:
-                            if self.git.inprogress():
-                                continue
-                            else:
+                        if not null_rdiff() or not null_diff():
+                            raw_input('Please resolve the issue and then press any key continue')
+                        if self.git.inprogress():
+                            if auto_resolve() and not self.git.inprogress():
                                 break
+                        else:
+                            break
             add_rrcache_msg(remote, branch)
 
             if mode == "rebase" and not self.git.inprogress():
