@@ -88,9 +88,9 @@ class KernelRelease(object):
                 return flist
 
         try:
-            params = self.cfg["bundle"]
-            uparams = self.cfg["bundle"]["upload-params"]
-            if params["enable"]:
+            params = self.cfg.get("bundle", None)
+
+            if params is not None and params["enable"]:
                 if not self.valid_git:
                     Exception("Kernel is not a git repo. So bundle option is not supported")
 
@@ -106,7 +106,10 @@ class KernelRelease(object):
 
                 bundle = self.generate_git_bundle(params["outname"], params["mode"], str_none(params["branch"]),
                                                   head, base, params["commit_count"])
-                if bundle is not None:
+
+                uparams = params.get("upload-params", None)
+
+                if uparams is not None and bundle is not None:
                     self.git_upload(bundle, str_none(params["upload-dir"]), uparams["new-commit"],
                                     conv_copyformat(uparams["copy-formats"]), uparams["commit-msg"],
                                     conv_remotelist(uparams["remote-list"]),
@@ -123,9 +126,9 @@ class KernelRelease(object):
 
 
         try:
-            params = self.cfg["quilt"]
-            uparams = self.cfg["quilt"]["upload-params"]
-            if params["enable"]:
+            params = self.cfg.get("quilt", None)
+
+            if params is not None and params["enable"]:
                 if not self.valid_git:
                     Exception("Kernel is not a git repo. So quilt option is not supported")
 
@@ -148,7 +151,9 @@ class KernelRelease(object):
                                             str_none(params["sed-file"]), str_none(params["audit-script"]),
                                             params['series-comment'])
 
-                if quilt is not None:
+                uparams = params.get("upload-params", None)
+
+                if quilt is not None and uparams is not None:
                     ret = self.git_upload(quilt, str_none(params["upload-dir"]), uparams["new-commit"],
                                           conv_copyformat(uparams["copy-formats"]),
                                           uparams["commit-msg"], conv_remotelist(uparams["remote-list"]),
@@ -167,12 +172,11 @@ class KernelRelease(object):
                 self.logger.info(format_h1("Successfully created quilt series", tab=2))
 
         try:
-            params = self.cfg["tar"]
-            uparams = self.cfg["tar"]["upload-params"]
-            if params["enable"]:
+            params = self.cfg.get("tar", None)
+            if params is not None and params["enable"]:
                 tarname = self.generate_tar_gz(params["outname"], str_none(params["branch"]), params["skip-files"])
-
-                if tarname is not None:
+                uparams = params.get("upload-params", None)
+                if tarname is not None and uparams is not None:
                     ret = self.git_upload(tarname, str_none(params["upload-dir"]), uparams["new-commit"],
                                           conv_copyformat(uparams["copy-formats"]), uparams["commit-msg"],
                                           conv_remotelist(uparams["remote-list"]),
@@ -190,9 +194,9 @@ class KernelRelease(object):
                 self.logger.info(format_h1("Successfully created tar file", tab=2))
 
         try:
-            params = self.cfg["upload-kernel"]
-            uparams = self.cfg["upload-kernel"]["upload-params"]
-            if params["enable"]:
+            params = self.cfg.get("upload-kernel", None)
+            if params is not None and params["enable"]:
+                uparams = params.get("upload-params", None)
                 ret = self.git_upload(self.src, str_none(params["upload-dir"]), uparams["new-commit"],
                                       conv_copyformat(uparams["copy-formats"]),
                                       uparams["commit-msg"], conv_remotelist(uparams["remote-list"]),
