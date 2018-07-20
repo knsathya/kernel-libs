@@ -27,7 +27,7 @@ import pkg_resources
 
 from jsonparser import JSONParser
 from klibs import BuildKernel, is_valid_kernel
-from klibs import format_h1
+from klibs.decorators import format_h1
 from pyshell import PyShell, GitShell
 
 CHECK_PATCH_SCRIPT='scripts/checkpatch.pl'
@@ -622,7 +622,8 @@ class KernelTest(object):
                     self.logger.info(err)
                 gerrorcount = gerrorcount + int(lerrorcount)
                 gwarningcount = gwarningcount + int(lwarningcount)
-                self.logger.debug("lerror:%d lwarning:%d gerror:%d gwarning:%d\n", lerrorcount, lwarningcount, gerrorcount, gwarningcount)
+                self.logger.debug("lerror:%d lwarning:%d gerror:%d gwarning:%d\n", lerrorcount, lwarningcount,
+                                  gerrorcount, gwarningcount)
                 prev_index = index
         except Exception as e:
             self.logger.error(e)

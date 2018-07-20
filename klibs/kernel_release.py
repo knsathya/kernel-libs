@@ -27,7 +27,7 @@ import errno
 import traceback
 
 from jsonparser import JSONParser
-from klibs import format_h1
+from klibs.decorators import format_h1
 from pyshell import GitShell, PyShell
 from klibs import is_valid_kernel
 

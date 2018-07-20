@@ -23,7 +23,7 @@ import tempfile
 from shutil import rmtree, move
 
 from jsonparser import JSONParser
-from klibs import format_h1
+from klibs.decorators import format_h1
 from pyshell import GitShell, PyShell
 from klibs import Email
 
