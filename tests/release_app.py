@@ -85,11 +85,6 @@ def add_cli_options(parser):
         sub_parser.add_argument('--use-refs', action='store_true', dest='use_refs', help='use refs for push')
         sub_parser.add_argument('--force-push', action='store_true', dest='force_push', help='force push')
         sub_parser.add_argument('--clean-update', action='store_true', dest='clean_update', help='Clean update')
-        sub_parser.add_argument('--timestamp-suffix', action='store_true', dest='timestamp_suffix',
-                                  help='Timestamp suffix branch')
-        sub_parser.add_argument('--suffix-sep', default='-', dest='suffix_sep', help='Suffix seperator')
-        sub_parser.add_argument('--timestamp-format', default='%m%d%Y%H%M%S', dest="timestamp_format",
-                                  help='timestamp format')
         sub_parser.add_argument('--tag-list', default=None, nargs='*', dest="tag_list", type=tag_type, help='tag list')
 
 
@@ -148,14 +143,11 @@ if __name__ == "__main__":
         if args.which == 'tar':
             obj.generate_tar_gz(args.outfile, args.branch, args.skip_files)
 
-        if args.which == 'upload':
-            obj.upload_timestamp_branch(args.branch, args.remote, args.rbranch)
-
         if out is not None:
             obj.git_upload(out, None, True, None, args.commit_msg, False,
                            (args.rname, args.rurl, args.rbranch, args.rdir),
-                           args.use_refs, args.force_push, args.clean_update.args.timestamp_suffix,
-                           args.suffix_sep, args.timestamp_format, args.tag_list)
+                           args.use_refs, args.force_push, args.clean_update,
+                           args.tag_list)
 
     else:
         logger.error("Invalid kernel output obj")

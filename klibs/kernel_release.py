@@ -18,7 +18,6 @@
 import os
 import logging, logging.config
 import pkg_resources
-import datetime
 import tarfile
 import tempfile
 import shutil
@@ -112,7 +111,6 @@ class KernelRelease(object):
                                     conv_copyformat(uparams["copy-formats"]), uparams["commit-msg"],
                                     conv_remotelist(uparams["remote-list"]),
                                     uparams["use-refs"], uparams["force-push"], uparams["clean-update"],
-                                    uparams["timestamp-suffix"], uparams["suffix-sep"], uparams["timestamp-format"],
                                     conv_taglist(uparams["tag-list"]))
                 else:
                     Exception("Generate bundle failed")
@@ -155,8 +153,7 @@ class KernelRelease(object):
                                           conv_copyformat(uparams["copy-formats"]),
                                           uparams["commit-msg"], conv_remotelist(uparams["remote-list"]),
                                           uparams["use-refs"], uparams["force-push"], uparams["clean-update"],
-                                          uparams["timestamp-suffix"], uparams["suffix-sep"],
-                                          uparams["timestamp-format"], conv_taglist(uparams["tag-list"]))
+                                          conv_taglist(uparams["tag-list"]))
 
                     if ret is None:
                         Exception("Quilt upload failed")
@@ -180,8 +177,7 @@ class KernelRelease(object):
                                           conv_copyformat(uparams["copy-formats"]), uparams["commit-msg"],
                                           conv_remotelist(uparams["remote-list"]),
                                           uparams["use-refs"], uparams["force-push"], uparams["clean-update"],
-                                          uparams["timestamp-suffix"], uparams["suffix-sep"],
-                                          uparams["timestamp-format"], conv_taglist(uparams["tag-list"]))
+                                          conv_taglist(uparams["tag-list"]))
                     if ret is None:
                         Exception("tar upload failed")
                 else:
@@ -201,7 +197,6 @@ class KernelRelease(object):
                                       conv_copyformat(uparams["copy-formats"]),
                                       uparams["commit-msg"], conv_remotelist(uparams["remote-list"]),
                                       uparams["use-refs"], uparams["force-push"], uparams["clean-update"],
-                                      uparams["timestamp-suffix"], uparams["suffix-sep"], uparams["timestamp-format"],
                                       conv_taglist(uparams["tag-list"]))
                 if ret is None:
                     Exception("Upload kernel failed")
@@ -216,7 +211,6 @@ class KernelRelease(object):
 
     def git_upload(self, src, uploaddir=None, new_commit=False, copy_formats=None, commit_msg="Inital commit",
                    remote_list=None, use_refs=False, force_update=False, clean_update=False,
-                   timestamp_suffix=False, suffix_sep='-', timestamp_format="%m%d%Y%H%M%S",
                    tag_list = None):
         """
         Upload the kernel or tar file or quilt series to a given remote_list.
@@ -229,9 +223,6 @@ class KernelRelease(object):
         :param use_refs: Use refs/for when pushing (True | False).
         :param force_update: Force update when pushing (True | False).
         :param clean_update: Remove existing content before adding and pushing your change (True | False).
-        :param timestamp_suffix: Add time stamp suffix to remotebranch before pushing.
-        :param suffix_sep: $remotebranch$suffix_sep$timestamp_siffix
-        :param timestamp_format: "%m%d%Y%H%M%S"
         :param tag_list: [("name", "msg")], None if no tagging support needed. Use None for no message.
         :return:
         """
@@ -332,11 +323,6 @@ class KernelRelease(object):
                 git = GitShell(wd=repo_dir, init=True, remote_list=[(remote[0], remote[1])], fetch_all=True)
 
                 rbranch = remote[2]
-
-                if timestamp_suffix:
-                    self.logger.info(format_h1("Upload timestamp branch", tab=2))
-                    ts = datetime.datetime.utcnow().strftime(timestamp_format)
-                    rbranch = rbranch + suffix_sep + ts
 
                 if git.push('HEAD', remote[0], rbranch, force=force_update, use_refs=use_refs)[0] != 0:
                     Exception("git push to %s %s failed" % (remote[0], rbranch))

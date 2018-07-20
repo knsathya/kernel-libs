@@ -28,9 +28,6 @@
             ],
             "new-commit": false,
             "commit-msg": "",
-            "timestamp-suffix": false,
-            "timestamp-format": "",
-            "suffix-sep": "-",
             "tag-list": []
         }
     },
@@ -62,9 +59,6 @@
             ],
             "new-commit": false,
             "commit-msg": "",
-            "timestamp-suffix": false,
-            "timestamp-format": "",
-            "suffix-sep": "-",
             "tag-list": []
         }
     },
@@ -83,9 +77,6 @@
             ],
             "new-commit": false,
             "commit-msg": "",
-            "timestamp-suffix": false,
-            "timestamp-format": "",
-            "suffix-sep": "-",
             "tag-list": []
         }
     },
@@ -103,9 +94,6 @@
             ],
             "new-commit": false,
             "commit-msg": "",
-            "timestamp-suffix": false,
-            "timestamp-format": "",
-            "suffix-sep": "-",
             "tag-list": []
         }
     }

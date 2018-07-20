@@ -266,21 +266,6 @@
                 "commit-msg": {
                     "type": "string"
                 },
-                "timestamp-suffix": {
-                    "type": "boolean",
-                    "description": "Enable if you want to add timestamp suffix to remote directory.",
-                    "default": false
-                },
-                "timestamp-format":{
-                    "type": "string",
-                    "description": "Timestamp format",
-                    "default": "%m%d%Y%H%M%S"
-                },
-                "suffix-sep": {
-                    "type": "string",
-                    "description": "Suffix seperator",
-                    "default": "-"
-                },
                 "tag-list": {
                     "type": "array",
                     "items": {
