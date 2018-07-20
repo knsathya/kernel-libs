@@ -23,7 +23,8 @@ import unittest
 import pyshell
 import logging
 import re
-
+import sys
+is_py2 = sys.version[0] == '2'
 logger = logging.getLogger(__name__)
 logging.basicConfig(format='%(message)s')
 logger.setLevel(logging.INFO)
@@ -48,6 +49,8 @@ class PyShellTest(unittest.TestCase):
     def test_git_version(self):
         git = pyshell.GitShell(logger=logger)
         version = git.cmd('--version')[1]
+        if not is_py2:
+            version=version.decode('utf-8')
         if re.match(r'git version \d+\.\d+\.\d+', version):
             logger.info(version)
         else:
