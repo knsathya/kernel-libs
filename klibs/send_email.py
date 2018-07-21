@@ -8,6 +8,17 @@ import logging
 import re
 import pkg_resources
 import smtpd
+import sys
+
+is_py2 = sys.version[0] == '2'
+
+if is_py2:
+    builtinbase=basestring
+    long_int=long
+else:
+    builtinbase=str
+    long_int=int
+
 
 class CustomSMTPServer(smtpd.SMTPServer):
     def process_message(self, peer, mailfrom, rcpttos, data):
@@ -60,13 +71,13 @@ class Email(object):
                           self.cfg["smtp-password"])
     def _smtp_setup(self):
 
-        str_check = lambda x: x is not None and isinstance(x, basestring) and len(x) > 0
+        str_check = lambda x: x is not None and isinstance(x, builtinbase) and len(x) > 0
 
         if not str_check(self.smtp_server):
             self.logger.error("Invalid SMTP server %s", self.smtp_server)
             return False
 
-        if not self.smtp_port >= 0 or not isinstance(self.smtp_port, (int, long)):
+        if not self.smtp_port >= 0 or not isinstance(self.smtp_port, (int, long_int)):
             self.logger.error("Invalid SMTP port %s", str(self.smtp_port))
             return False
 
@@ -108,7 +119,7 @@ class Email(object):
                 if not valid(item):
                     return False
             return True
-        elif isinstance(data, basestring):
+        elif isinstance(data, builtinbase):
             if valid(data):
                 return True
 
@@ -119,19 +130,19 @@ class Email(object):
         def check_val(val, type):
             return (val is not None and isinstance(val, type))
 
-        if check_val(smtp_server, basestring):
+        if check_val(smtp_server, builtinbase):
             self.smtp_server = smtp_server
 
-        if check_val(smtp_port, (int, long)):
+        if check_val(smtp_port, (int, long_int)):
             self.smtp_port = smtp_port
 
-        if check_val(auth, basestring) and auth in self.supported_auths:
+        if check_val(auth, builtinbase) and auth in self.supported_auths:
             self.auth = auth
 
-        if check_val(username, basestring):
+        if check_val(username, builtinbase):
             self.username = username
 
-        if check_val(password, basestring):
+        if check_val(password, builtinbase):
             self.password = password
 
     def set_header(self, _from, _to=[], _cc=[], _bcc=[]):
@@ -168,7 +179,10 @@ class Email(object):
         msg['Bcc'] = ','.join(self._bcc)
         msg.attach(MIMEText(content))
 
-        self.client_obj.sendmail(self._from, rcpt, msg.as_string())
+        if is_py2:
+            self.client_obj.sendmail(self._from, rcpt, msg.as_string())
+        else:
+            self.client_obj.sendmail(self._from, list(rcpt), msg.as_string())
 
         self._smtp_close()
 
