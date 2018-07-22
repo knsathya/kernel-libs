@@ -74,7 +74,8 @@ class KernelResults(object):
         self.results = self.cfgobj.get_cfg()
 
         if old_cfg is not None:
-            self.update_results(old_cfg)
+            if not self.update_results(old_cfg):
+                return None
 
     def get_static_obj(self, arch):
         for index, obj in enumerate(self.static_results):
@@ -133,8 +134,10 @@ class KernelResults(object):
         except Exception as e:
             self.logger.warning("Invalid results config file\n")
             self.logger.warning(e)
+            return False
         else:
             self.results = self.merge_results(self.results, new_results)
+            return True
 
     def _update_static_test_results(self, type, arch, config, status, warning_count=0, error_count=0):
         for obj in self.results["static-test"]:
