@@ -129,8 +129,12 @@ class KernelResults(object):
             param1 = self.results["kernel-params"]
             param2 = new_results["kernel-params"]
             for field in ["head", "base", "branch", "version"]:
-                if (param1[field] != param2[field]) and (param1[field] != "" if field != "version" else "Linux"):
-                    raise Exception("%s field values does not match", field)
+                if len(param1[field]) > 0 and len(param2[field]) > 0:
+                    if (param1[field] != param2[field]):
+                        if field == "version" and (param1[field] == "Linux" or param2[field] == "Linux"):
+                            continue
+                        else:
+                            raise Exception("%s field values does not match %s==%s" % (field, param1[field], param2[field]))
         except Exception as e:
             self.logger.warning("Invalid results config file\n")
             self.logger.warning(e)

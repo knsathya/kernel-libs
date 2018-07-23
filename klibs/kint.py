@@ -277,7 +277,7 @@ class KernelInteg(object):
 
         def send_email(remote, branch, status, out, err):
 
-            if not sendemail:
+            if not sendemail or self.emailobj is None:
                 return
 
             subject = [] if len(sub_prefix) == 0 else [sub_prefix]
@@ -557,8 +557,9 @@ class KernelInteg(object):
                     content.append('Upload Remote: %s' % rurl)
                     content.append('Upload Branch: %s' % upload_options['branch'])
                     content.append('')
- 
-            self.emailobj.send_email(' '.join(subject), '\n'.join(content))
+
+            if self.emailobj is not None:
+                self.emailobj.send_email(' '.join(subject), '\n'.join(content))
 
         return status
 
