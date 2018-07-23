@@ -281,10 +281,10 @@ class KernelRelease(object):
                         else:
                             ret = git.cmd('tag', tag[0])[0]
                         if ret != 0:
-                            Exception("git tag %s failed" % (tag[0]))
+                            raise Exception("git tag %s failed" % (tag[0]))
 
                         if git.cmd('push', remote, tag[0])[0] != 0:
-                            Exception("git push tag %s to %s failed" % (tag[0], remote))
+                            raise Exception("git push tag %s to %s failed" % (tag[0], remote))
 
         try:
             for remote in remote_list:
@@ -297,11 +297,11 @@ class KernelRelease(object):
                     git.cmd('reset --hard')
 
                     if git.cmd("checkout", remote[0] + '/' + remote[2])[0] != 0:
-                        Exception("Git checkout remote:%s branch:%s failed", remote[1], remote[2])
+                        raise Exception("Git checkout remote:%s branch:%s failed", remote[1], remote[2])
 
                     # If clean update is given, remove the contents of current repo.
                     if clean_update and git.cmd('rm *')[0] != 0:
-                        Exception("git rm -r *.patch failed")
+                        raise Exception("git rm -r *.patch failed")
 
                     dest_dir = os.path.join(uploaddir, remote[3]) if remote[3] is not None else uploaddir
                     if not os.path.exists(dest_dir):
@@ -317,10 +317,10 @@ class KernelRelease(object):
                             shutil.copyfile(item,  os.path.join(dest_dir, os.path.basename(item)))
 
                     if git.cmd('add *')[0] != 0:
-                        Exception("git add command failed")
+                        raise Exception("git add command failed")
 
                     if git.cmd('commit -s -m "' + commit_msg + '"')[0]:
-                        Exception("git commit failed")
+                        raise Exception("git commit failed")
 
                     repo_dir = uploaddir
 
@@ -329,7 +329,7 @@ class KernelRelease(object):
                 rbranch = remote[2]
 
                 if git.push('HEAD', remote[0], rbranch, force=force_update, use_refs=use_refs)[0] != 0:
-                    Exception("git push to %s %s failed" % (remote[0], rbranch))
+                    raise Exception("git push to %s %s failed" % (remote[0], rbranch))
 
                 upload_tags(remote[0], tag_list)
 
@@ -527,7 +527,7 @@ class KernelRelease(object):
         try:
             ret = self.sh.cmd("%s %s %s" % (tar_cmd, os.path.abspath(outfile), os.path.abspath(self.src)), shell=True)
             if ret[0] != 0:
-                Exception("Create tar command failed")
+                raise Exception("Create tar command failed")
         except Exception as e:
             self.logger.error(e, exc_info=True)
             return None

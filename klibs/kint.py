@@ -461,7 +461,7 @@ class KernelInteg(object):
                 if self.git.valid_branch('', dest_repo['local-branch']):
                     ret = self.git.cmd("branch", "-D", dest_repo['local-branch'])[0]
                     if ret != 0:
-                        Exception("Deleting branch %s failed" % dest_repo['local-branch'])
+                        raise Exception("Deleting branch %s failed" % dest_repo['local-branch'])
 
                 self.git.cmd("checkout", repo['repo-head'], "-b", dest_repo['local-branch'])
 

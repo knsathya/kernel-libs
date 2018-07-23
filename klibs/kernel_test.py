@@ -130,7 +130,7 @@ class KernelResults(object):
             param2 = new_results["kernel-params"]
             for field in ["head", "base", "branch", "version"]:
                 if (param1[field] != param2[field]) and (param1[field] != "" if field != "version" else "Linux"):
-                    Exception("%s field values does not match", field)
+                    raise Exception("%s field values does not match", field)
         except Exception as e:
             self.logger.warning("Invalid results config file\n")
             self.logger.warning(e)
@@ -232,10 +232,10 @@ class KernelResults(object):
 
         if isinstance(src, collections.Mapping):
             for key, value in src.iteritems():
-                dest[key] = self.merge_results(dest[key], src[key])
+                dest[key] = self.merge_results(dest.get(key, src[key]), src[key])
         elif isinstance(src, (list, tuple)):
             for index, value in enumerate(src):
-                dest[index] = self.merge_results(dest[index], src[index])
+                dest[index] = self.merge_results(dest[index] if len(dest) <= index else src[index], src[index])
         else:
             dest = src
 
