@@ -459,7 +459,7 @@ class KernelInteg(object):
             for dest_repo in repo['dest-list']:
 
                 if self.git.valid_branch('', dest_repo['local-branch']):
-                    ret = self.git.cmd("branch", "-D", dest_repo['local-branch'])[0]
+                    ret = self.git.delete(dest_repo['local-branch'], force=True)[0]
                     if ret != 0:
                         raise Exception("Deleting branch %s failed" % dest_repo['local-branch'])
 
@@ -476,7 +476,7 @@ class KernelInteg(object):
         except Exception as e:
             self.logger.error(e, exc_info=True)
             for branch in dest_branches:
-                self.git.cmd("branch", "-D", branch)[0]
+                self.git.delete(branch, force=True)
         else:
             self.logger.info("Repo %s creation successfull" % repo['repo-name'])
 
