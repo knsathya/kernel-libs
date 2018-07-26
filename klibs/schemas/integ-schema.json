@@ -101,6 +101,16 @@
                                 "branch": {
                                     "description": "Source repo remote branch name",
                                     "type": "string"
+                                },
+                                "upstream": {
+                                    "description": "This option is mainly used for cherry mode. SHA ID or local branch name or remote/branch name",
+                                    "type": "string",
+                                    "default": ""
+                                },
+                                "sha-list": {
+                                    "description": "List of SHA's. Its used mainly in cherry-pick mode",
+                                    "type": "string",
+                                    "default": ""
                                 }
                             }
                         }
@@ -121,7 +131,9 @@
                                     "enum": [
                                         "rebase",
                                         "merge",
-                                        "replace"
+                                        "replace",
+                                        "cherry",
+                                        "cheerypick"
                                     ],
                                     "default": "replace"
                                 },

@@ -27,6 +27,7 @@ from klibs.decorators import format_h1
 from pyshell import GitShell, PyShell
 from klibs import Email
 
+valid_str = lambda x: True if x is not None and isinstance(x, basestring) and len(x) > 0 else False
 
 class KernelInteg(object):
     def __init__(self, repo_dir, cfg, repo_head=None, emailcfg=None, logger=None):
@@ -85,7 +86,7 @@ class KernelInteg(object):
             return False
 
         # Check if the repo head is valid.
-        if len(repo_head) > 0:
+        if valid_str(repo_head):
             if is_valid_head(repo_head) is False:
                 raise Exception("Invalid repo head %s" % repo_head)
             else:
@@ -269,7 +270,7 @@ class KernelInteg(object):
             if abort is True:
                 return ' '.join(['merge', '--abort'])
 
-            if remote is not None and len(remote) > 0:
+            if valid_str(remote):
                 return ' '.join(['pull', ' '.join(options), remote, rbranch])
             else:
                 return ' '.join(['merge', ' '.join(options), rbranch])
@@ -289,8 +290,12 @@ class KernelInteg(object):
                 subject.append('Rebase')
             elif mode == 'replace':
                 subject.append('Replace')
+            elif mode == 'cherry':
+                subject.append('Cherry')
+            elif mode == 'cherrypick':
+                subject.append('Cherrypick')
 
-            if remote is not None and len(remote) > 0:
+            if valid_str(remote):
                 branch = remote + '/' + branch
 
             subject.append(branch)
@@ -336,10 +341,64 @@ class KernelInteg(object):
                     url = uret[1].strip() if uret[0] == 0 and len(uret[1]) > 0 else branch 
                     rcoptions['upload-msg'].append("Includes %s resolution of %s:%s" % (mode, url, branch))
 
+        def get_cherry_list(upstream, branch):
+            ret = self.git.cmd("cherry", upstream, branch)
+            if ret[0] != 0:
+                return ''
+            else:
+                #self.logger.info(ret[1])
+                commit_list = map(lambda x: x.strip(), ret[1].split('\n'))
+                #self.logger.info(commit_list)
+                commit_list = filter(lambda x: x.startswith('+'), commit_list)
+                #self.logger.info(commit_list)
+                commit_list = map(lambda x: x.strip('+ '), commit_list)
+                self.logger.info(commit_list)
+                return ' '.join(commit_list)
+
+        # Check whether git diff is empty
+        def null_diff():
+            dret = self.git.cmd('diff')
+            if dret[0] == 0 and len(dret[1]) == 0:
+                return True
+
+            return False
+
+        # Check for rerere diff
+        def null_rdiff():
+            dret = self.git.cmd('rerere diff')
+            if dret[0] == 0 and len(dret[1]) < 2:
+                return True
+
+            return False
+
+        def auto_resolve():
+            if options["rr-cache"]["use-auto-merge"]:
+                if null_rdiff() or null_diff():
+                    if mode == "merge":
+                        self.git.cmd('commit', '-as', '--no-edit')
+                        return True
+                    elif mode == "rebase":
+                        dret = self.git.cmd('diff', '--cached')
+                        if dret[0] == 0 and len(dret[1]) == 0:
+                            self.git.cmd('rebase', '--skip')
+                        else:
+                            self.git.cmd('rebase', '--continue')
+                        return True
+                    elif mode == "cherry" or mode == "cherrypick":
+                        dret = self.git.cmd('diff', '--cached')
+                        if dret[0] == 0 and len(dret[1]) == 0:
+                            self.git.cmd('reset')
+                            raw_input("After reset")
+                        self.git.cmd('cherry-pick', '--continue')
+                        raw_input("continue cherry pick")
+
+                        return True
+            return False
+
         if options["use-rr-cache"]:
             self._config_rr_cache(options["rr-cache"])
 
-        for remote, branch in merge_list:
+        for remote, branch, upstream, shalist in merge_list:
             ret = 0, '', ''
             if mode == "merge":
                 self.git.cmd("checkout", dest)
@@ -349,35 +408,19 @@ class KernelInteg(object):
                 ret = self.git.cmd("rebase", dest)
             elif mode == "replace":
                 ret = self.git.cmd("checkout", remote + '/' + branch if remote != '' else branch)
+            elif mode == "cherry":
+                commit_list = get_cherry_list(upstream, remote + '/' + branch if remote != '' else branch)
+                if valid_str(commit_list):
+                    ret = self.git.cmd("cherry-pick", commit_list)
+                    raw_input("After cherry pick command")
+                else:
+                    continue
+            elif mode == "cherrypick":
+                if valid_str(shalist):
+                    ret = self.git.cmd("cherry-pick", shalist)
+                else:
+                    continue
 
-            def null_diff():
-                dret = self.git.cmd('diff')
-                if dret[0] == 0 and len(dret[1]) == 0:
-                    return True
-
-                return False
-
-            def null_rdiff():
-                dret = self.git.cmd('rerere diff')
-                if dret[0] == 0 and len(dret[1]) < 2:
-                    return True
-
-                return False
-
-            def auto_resolve():
-                if options["rr-cache"]["use-auto-merge"]:
-                    if null_rdiff() or null_diff():
-                        if mode == "merge":
-                            self.git.cmd('commit', '-as', '--no-edit')
-                            return True
-                        elif mode == "rebase":
-                            dret = self.git.cmd('diff', '--cached')
-                            if dret[0] == 0 and len(dret[1]) == 0:
-                                self.git.cmd('rebase', '--skip')
-                            else:
-                                self.git.cmd('rebase', '--continue')
-                            return True
-                return False
 
             if self.git.inprogress() or ret[0] != 0:
                 # First try to auto resolve it.
@@ -393,6 +436,7 @@ class KernelInteg(object):
                                 break
                         else:
                             break
+
             add_rrcache_msg(remote, branch)
 
             if mode == "rebase" and not self.git.inprogress():
@@ -451,7 +495,8 @@ class KernelInteg(object):
             if self.git.valid_branch(srepo['url'], srepo['branch']) is False:
                 raise Exception("Dependent repo %s/%s does not exits" % (srepo['url'], srepo['branch']))
             else:
-                merge_list.append((srepo['url'], srepo['branch']))
+                self.logger.info("%s, %s, %s, %s" % (srepo['url'], srepo['branch'], srepo["upstream"], srepo["sha-list"]))
+                merge_list.append((srepo['url'], srepo['branch'], srepo["upstream"], srepo["sha-list"]))
 
         # Create destination branches
         dest_branches = []
@@ -527,7 +572,7 @@ class KernelInteg(object):
             content.append(format_h1("This repo integration includes:"))
             content.append(format_h1("Following source branches:"))
             content.append('')
-            for rname, rbranch in merge_list:
+            for rname, rbranch, upstream, shalist in merge_list:
                 url = rname
                 if len(rname) == 0:
                     rname = 'local-branch'
