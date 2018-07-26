@@ -72,7 +72,9 @@ def add_cli_options(parser):
 
 if __name__ == "__main__":
 
-    logger = setup_logging(os.path.join(os.getcwd(), 'kint-configs', 'log-config.yaml'))
+    logging.basicConfig(level=logging.INFO, format='%(message)s')
+
+    logger = logging.getLogger(__name__)
 
     parser = argparse.ArgumentParser(description='Script used for dev-bkc/LTS Kerenl Integration')
 

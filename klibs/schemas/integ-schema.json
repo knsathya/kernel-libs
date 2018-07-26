@@ -290,10 +290,10 @@
             "description": "List of repos needs to be integrated",
             "items": {
                 "type": "object",
-                "description": "kint repo params",
+                "description": "kernel integraion repo params",
                 "properties": {
                     "dep-repos": {
-                        "description": "List of dependent repos of kint-repo ",
+                        "description": "List of dependent repos of given repo",
                         "type": "array",
                         "items": {
                             "type": "string"

@@ -20,6 +20,6 @@ from klibs.build_kernel import BuildKernel, KernelConfig, is_valid_kernel, get_k
 from klibs.send_email import Email
 from klibs.kernel_release import KernelRelease
 from klibs.kernel_test import KernelTest, KernelResults, supported_configs, supported_archs, supported_oldconfigs
-from klibs.kint import KernelInteg
+from klibs.kernel_integ import KernelInteg
 from klibs.build_kernel import BuildKernel, is_valid_kernel
 from klibs.decorators import Decorator, EntryExit
