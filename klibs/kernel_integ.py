@@ -346,13 +346,9 @@ class KernelInteg(object):
             if ret[0] != 0:
                 return ''
             else:
-                #self.logger.info(ret[1])
                 commit_list = map(lambda x: x.strip(), ret[1].split('\n'))
-                #self.logger.info(commit_list)
                 commit_list = filter(lambda x: x.startswith('+'), commit_list)
-                #self.logger.info(commit_list)
                 commit_list = map(lambda x: x.strip('+ '), commit_list)
-                self.logger.info(commit_list)
                 return ' '.join(commit_list)
 
         # Check whether git diff is empty
@@ -495,7 +491,6 @@ class KernelInteg(object):
             if self.git.valid_branch(srepo['url'], srepo['branch']) is False:
                 raise Exception("Dependent repo %s/%s does not exits" % (srepo['url'], srepo['branch']))
             else:
-                self.logger.info("%s, %s, %s, %s" % (srepo['url'], srepo['branch'], srepo["upstream"], srepo["sha-list"]))
                 merge_list.append((srepo['url'], srepo['branch'], srepo["upstream"], srepo["sha-list"]))
 
         # Create destination branches
