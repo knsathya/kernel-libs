@@ -285,6 +285,11 @@
                 }
             }
         },
+        "default-repo": {
+            "type": "string",
+            "description": "Default repo name",
+            "default": ""
+        },
         "int-list": {
             "type": "array",
             "description": "List of repos needs to be integrated",

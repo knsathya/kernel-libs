@@ -615,6 +615,17 @@ class KernelInteg(object):
 
         return None
 
+    def get_default_reponame(self):
+        default = self.cfg.get('default-repo', "")
+
+        if self._get_repo_by_name(default) is not None:
+            return default
+
+        if self.repos is not None and len(self.repos) > 0:
+            return self.repos[0]['repo-name']
+
+        return None
+
     def start(self, name, skip_dep=False):
         """
         Generate kernel and its depndent branches.
