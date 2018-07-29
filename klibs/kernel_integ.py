@@ -493,10 +493,17 @@ class KernelInteg(object):
             else:
                 merge_list.append((srepo['url'], srepo['branch'], srepo["upstream"], srepo["sha-list"]))
 
+        dest_repolist = []
+
+        for drepo in repo['dest-list']:
+            if drepo['skip']:
+                continue
+            dest_repolist.append(drepo)
+
         # Create destination branches
         dest_branches = []
         try:
-            for dest_repo in repo['dest-list']:
+            for dest_repo in dest_repolist:
 
                 if self.git.valid_branch('', dest_repo['local-branch']):
                     ret = self.git.delete(dest_repo['local-branch'], force=True)[0]
@@ -522,9 +529,9 @@ class KernelInteg(object):
 
         # Compare destination branches
         if status is True and repo['compare-dest']:
-            if len(repo['dest-list']) > 1:
-                base_repo = repo['dest-list'][0]
-                for dest_repo in repo['dest-list']:
+            if len(dest_repolist) > 1:
+                base_repo = dest_repolist[0]
+                for dest_repo in dest_repolist:
                     ret, out, err = self.git.cmd('diff', base_repo['local-branch'], dest_repo['local-branch'])
                     if ret != 0:
                         if repo['compare-resmode'] == "fail":
@@ -546,7 +553,7 @@ class KernelInteg(object):
 
         # Upload the destination branches
         if status is True:
-            for dest_repo in repo['dest-list']:
+            for dest_repo in dest_repolist:
                 if dest_repo['upload-copy'] is True:
                     upload_options = dest_repo['upload-options']
                     self._upload_repo(dest_repo['local-branch'], upload_options)
@@ -582,7 +589,7 @@ class KernelInteg(object):
             content.append(format_h1("Following destination branches:"))
             content.append('')
 
-            for dest_repo in repo['dest-list']:
+            for dest_repo in dest_repolist:
                 content.append('Branch: %s' % dest_repo['local-branch'])
                 content.append('Merge Mode: %s' % dest_repo['merge-mode'])
                 if dest_repo['upload-copy'] is True:

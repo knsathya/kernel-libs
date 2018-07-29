@@ -126,6 +126,11 @@
                                     "description": "Name of the branch",
                                     "type": "string"
                                 },
+                                "skip": {
+                                    "description": "Toggle button to skip the destination branch creation",
+                                    "type": "boolean",
+                                    "default": false
+                                },
                                 "merge-mode": {
                                     "description": "Mode of merge. replace mode works only with single source branch.",
                                     "enum": [
