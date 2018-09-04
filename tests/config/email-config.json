@@ -1,11 +1,11 @@
 {
-    "smtp-server": "localhost",
-    "smtp-port": 1025,
-    "from": "sathya@sathya.com",
+    "smtp-server": "smtp.intel.com",
+    "smtp-port": 0,
+    "from": "randy@intel.com",
     "to": [
-        "sathyaosid@gmail.com"
+        "randy.g.duran@intel.com"
     ],
     "cc": [
-        "sathyaosid@gmail.com"
+        "randy.g.duran@intel.com"
     ]
 }

@@ -21,7 +21,7 @@ import logging, logging.config
 import pkg_resources
 import tempfile
 from shutil import rmtree, move
-
+from past.builtins import basestring
 from jsonparser import JSONParser
 from klibs.decorators import format_h1
 from pyshell import GitShell, PyShell
@@ -384,9 +384,9 @@ class KernelInteg(object):
                         dret = self.git.cmd('diff', '--cached')
                         if dret[0] == 0 and len(dret[1]) == 0:
                             self.git.cmd('reset')
-                            raw_input("After reset")
+                            input("After reset")
                         self.git.cmd('cherry-pick', '--continue')
-                        raw_input("continue cherry pick")
+                        input("continue cherry pick")
 
                         return True
             return False
@@ -408,7 +408,7 @@ class KernelInteg(object):
                 commit_list = get_cherry_list(upstream, remote + '/' + branch if remote != '' else branch)
                 if valid_str(commit_list):
                     ret = self.git.cmd("cherry-pick", commit_list)
-                    raw_input("After cherry pick command")
+                    input("After cherry pick command")
                 else:
                     continue
             elif mode == "cherrypick":
@@ -426,7 +426,7 @@ class KernelInteg(object):
                     send_email(remote, branch, False, ret[1], ret[2])
                     while True:
                         if not null_rdiff() or not null_diff():
-                            raw_input('Please resolve the issue and then press any key continue')
+                            input('Please resolve the issue and then press any key continue')
                         if self.git.inprogress():
                             if auto_resolve() and not self.git.inprogress():
                                 break
@@ -488,6 +488,8 @@ class KernelInteg(object):
         for srepo in repo['source-list']:
             if srepo['skip'] is True:
                 continue
+            self.logger.info("Repo URL: %s", srepo['url'])
+            self.logger.info("Repo branch: %s", srepo['branch'])
             if self.git.valid_branch(srepo['url'], srepo['branch']) is False:
                 raise Exception("Dependent repo %s/%s does not exits" % (srepo['url'], srepo['branch']))
             else:

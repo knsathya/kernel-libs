@@ -12,7 +12,7 @@ def format_h1(str='', width=64, fc='=', tab=0):
     """
     str_len = len(str)
     width = width - tab * 4
-    flen = (width - str_len) / 2
+    flen = (width - str_len) // 2
     out = str
     str_dec = lambda c, l: ''.join([c for i in range(0, l)])
     if str_len < width:
