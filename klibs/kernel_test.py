@@ -29,6 +29,7 @@ from jsonparser import JSONParser
 from klibs import BuildKernel, is_valid_kernel
 from klibs.decorators import format_h1
 from pyshell import PyShell, GitShell
+from klibs import Email
 
 CHECK_PATCH_SCRIPT='scripts/checkpatch.pl'
 
@@ -311,6 +312,32 @@ class KernelTest(object):
         if cfg is not None:
             self.cfgobj = JSONParser(self.schema, cfg, extend_defaults=True, os_env=True, logger=logger)
             self.cfg = self.cfgobj.get_cfg()
+
+    def send_email(self, emailcfg, sub=None):
+
+        if emailcfg is not None:
+            emailobj = Email(emailcfg, self.logger)
+        else:
+            return False
+
+        subject = ['Test results']
+        if sub is not None:
+            subject.append(sub)
+
+        content = []
+
+        outfile = tempfile.NamedTemporaryFile()
+        self.resobj.dump_results(outfile=outfile.name)
+
+        with open(outfile.name) as fobj:
+            content.append(format_h1("Test Results"))
+            content.append('')
+            content.append(fobj.read())
+            content.append('\n')
+
+        emailobj.send_email(' '.join(subject), '\n'.join(content))
+
+        return True
 
     def auto_test(self):
         self.logger.info(format_h1("Running kernel tests from json", tab=2))
