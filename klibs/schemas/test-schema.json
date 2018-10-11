@@ -283,6 +283,11 @@
                         "type": "string"
                     },
                     "default": []
+                },
+                "append-kinfo": {
+                    "description": "Enable if you want to append kernel info to upload msg",
+                    "type": "boolean",
+                    "default": false
                 }
             }
         }

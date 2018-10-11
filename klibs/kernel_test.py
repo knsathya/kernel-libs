@@ -339,6 +339,69 @@ class KernelTest(object):
 
         return True
 
+    def git_upload_results(self, remote, mode='push', msg=[], append_kinfo=False,
+                           resdir=None, relpath=".", outfile='out.json'):
+        """
+        Upload the results to remote repo.
+        :param remote: (remotename, url, branch).
+        :param mode:  Git push mode (push, force-push, refs-for)
+        :param msg: Commit message in list format, One line for each entry.
+        :param append_kinfo: Append kernel info to commit message.
+        :param resdir: Dir used for uploading the results.
+        :param relpath: Relative path of the results file.
+        :param outfile: Results file.
+
+        :return: True | False
+        """
+
+        clean_resdir = False
+
+        if not isinstance(remote, tuple) or len(remote) != 3:
+            self.logger.info("Invalid remote %s", remote)
+            return False
+
+        if resdir is None:
+            resdir = tempfile.mkdtemp("_dir", "output_")
+            clean_resdir = True
+
+        # Commit the results file  used back to server.
+        ogit = GitShell(wd=resdir, init=True, remote_list=[(remote[0], remote[1])], fetch_all=True, logger=self.logger)
+        ogit.cmd("clean -xdf")
+        ogit.cmd("checkout %s/%s" % (remote[0], remote[2]))
+        output_file = os.path.join(resdir, relpath, outfile)
+
+        if not os.path.exists(os.path.dirname(output_file)):
+            os.makedirs(os.path.dirname(output_file))
+
+        self.resobj.dump_results(outfile=output_file)
+
+        ogit.cmd('add %s' % (relpath + '/' + outfile))
+
+        # Create the commit message and upload it
+        with tempfile.NamedTemporaryFile() as msg_file:
+            commit_msg = '\n'.join(msg)
+            # Use default msg if its not given in config file.
+            if len(commit_msg) == 0:
+                commit_msg = "test: Update latest results"
+            # Append kernel info if enabled.
+            if append_kinfo:
+                commit_msg += '\n'
+                commit_msg += self.resobj.kernel_info()
+            msg_file.write(commit_msg)
+            msg_file.seek(0)
+            ogit.cmd('commit -s -F %s' % msg_file.name)
+
+        if mode == 'refs-for':
+            remote[2] = 'refs/for/%s' % remote[2]
+
+        if not ogit.valid_branch('origin', remote[2]) or mode == 'force-push':
+            ogit.cmd('push', '-f', 'origin', 'HEAD:%s' % remote[2])
+        else:
+            ogit.cmd('push', 'origin', 'HEAD:%s' % remote[2])
+
+        if clean_resdir:
+            shutil.rmtree(resdir, ignore_errors=True)
+
     def auto_test(self):
         self.logger.info(format_h1("Running kernel tests from json", tab=2))
 
@@ -444,44 +507,18 @@ class KernelTest(object):
         output_config = self.cfg.get("output-config", None)
 
         if output_config is not None and output_config["enable"] is True and len(output_config["url"]) > 0:
-            output_temp = tempfile.mkdtemp("_dir", "output_")
 
             # Commit the results file  used back to server.
             if output_config["sync-mode"] == "git":
-                ogit = GitShell(wd=output_temp, init=True, remote_list=[('origin', output_config["url"])], fetch_all=True,
-                                logger=self.logger)
-                ogit.cmd("clean -xdf")
-                ogit.cmd("checkout %s/%s" % ('origin',  output_config["branch"]))
-                output_file = os.path.join(output_temp,  output_config["remote-dir"], output_config["name"])
+                self.git_upload_results(remote=('origin', output_config["url"], output_config["branch"]),
+                                               mode=output_config["mode"],
+                                               msg=output_config["upload-msg"],
+                                               append_kinfo=output_config.get("append-kinfo", False),
+                                               resdir=None,
+                                               relpath=output_config["remote-dir"],
+                                               outfile=output_config["name"]
+                                               )
 
-                if not os.path.exists(os.path.dirname(output_file)):
-                    os.makedirs(os.path.dirname(output_file))
-
-                self.resobj.dump_results(outfile=output_file)
-                ogit.cmd('add %s' % os.path.join(output_config["remote-dir"], output_config["name"]))
-
-                #Create the commit message and upload it
-                with tempfile.NamedTemporaryFile() as msg_file:
-                    commit_msg  = '\n'.join(output_config["upload-msg"])
-                    # Use default msg if its not given in config file.
-                    if len(commit_msg) == 0:
-                        commit_msg = "test: Update latest results"
-                    msg_file.write(commit_msg)
-                    msg_file.seek(0)
-                    ogit.cmd('commit -s -F %s' % msg_file.name)
-
-                rbranch = output_config["branch"]
-
-
-                if output_config["mode"] == 'refs-for':
-                    rbranch = 'refs/for/%s' % output_config["branch"]
-
-                if not ogit.valid_branch('origin', output_config["branch"]) or output_config["mode"] == 'force-push':
-                    ogit.cmd('push', '-f', 'origin', 'HEAD:%s' % rbranch)
-                else:
-                    ogit.cmd('push', 'origin', 'HEAD:%s' % rbranch)
-
-            shutil.rmtree(output_temp, ignore_errors=True)
 
         shutil.rmtree(config_temp, ignore_errors=True)
 
