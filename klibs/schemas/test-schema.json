@@ -145,6 +145,102 @@
                 }
             }
         },
+        "sparse-config": {
+            "type": "object",
+            "properties": {
+                "enable": {
+                    "description": "Global flag to disable sparse config",
+                    "type": "boolean",
+                    "default": true
+                },
+                "source": {
+                    "description": "Sparse script path",
+                    "type": "string",
+                    "default": "/usr/bin/sparse"
+                },
+                "cflags": {
+                    "type": "array",
+                    "description": "Sparse C flags",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": ["C=2"]
+                },
+                "base": {
+                    "$ref": "#/definitions/kernel-params"
+                }
+            }
+        },
+        "smatch-config": {
+            "type": "object",
+            "properties": {
+                "enable": {
+                    "description": "Global flag to disable smatch config",
+                    "type": "boolean",
+                    "default": true
+                },
+                "source": {
+                    "description": "Smatch script path",
+                    "type": "string",
+                    "default": "/usr/bin/sparse"
+                },
+                "cflags": {
+                    "type": "array",
+                    "description": "Sparse C flags",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": ["C=2"]
+                },
+                "base": {
+                    "$ref": "#/definitions/kernel-params"
+                }
+            }
+        },
+        "custom-test": {
+            "type": "object",
+            "properties": {
+                "enable": {
+                    "description": "Global flag to disable custom test",
+                    "type": "boolean",
+                    "default": true
+                },
+                "head": {
+                    "$ref": "#/definitions/kernel-params"
+                },
+                "base": {
+                    "$ref": "#/definitions/kernel-params"
+                },
+                "test-list": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "name",
+                            "source"
+                        ],
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "description": "Name of the test"
+                            },
+                            "source": {
+                                "description": "Script path",
+                                "type": "string"
+                            },
+                            "arg-list": {
+                                "type": "array",
+                                "description": "Argument list",
+                                "items": {
+                                    "type": "string"
+                                },
+                                "default": []
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "checkpatch-config": {
             "type": "object",
             "properties": {
@@ -159,60 +255,10 @@
                     "default": "scripts/checkpatch.pl"
                 },
                 "base": {
-                    "type": "object",
-                    "properties": {
-                        "auto": {
-                            "type": "boolean",
-                            "default": true
-                        },
-                        "auto-mode": {
-                            "enum": [
-                                "last-upstream",
-                                "last-tag",
-                                "head-commit",
-                                "base-commit",
-                                "grep-comit",
-                                "grep-tag"
-                            ],
-                            "default": "last-upstream"
-                        },
-                        "grep-input": {
-                            "type": "string",
-                            "default": ""
-                        },
-                        "value": {
-                            "type": "string",
-                            "default": ""
-                        }
-                    }
+                    "$ref": "#/definitions/kernel-params"
                 },
                 "head": {
-                    "type": "object",
-                    "properties": {
-                        "auto": {
-                            "type": "boolean",
-                            "default": true
-                        },
-                        "auto-mode": {
-                            "enum": [
-                                "last-upstream",
-                                "last-tag",
-                                "head-commit",
-                                "base-commit",
-                                "grep-comit",
-                                "grep-tag"
-                            ],
-                            "default": "head-commit"
-                        },
-                        "grep-input": {
-                            "type": "string",
-                            "default": ""
-                        },
-                        "value": {
-                            "type": "string",
-                            "default": ""
-                        }
-                    }
+                    "$ref": "#/definitions/kernel-params"
                 }
             }
         },
@@ -307,7 +353,16 @@
                 }
             ]
         },
+        "sparse-config": {
+            "enable": true
+        },
+        "smatch-config": {
+            "enable": true
+        },
         "checkpatch-config": {
+            "enable": false
+        },
+        "custom-test": {
             "enable": false
         },
         "output-config": {
@@ -338,6 +393,40 @@
                 "compile-test": false,
                 "smatch-test": false,
                 "sparse-test": false
+            }
+        },
+        "kernel-params": {
+            "type": "object",
+            "properties": {
+                "auto": {
+                    "type": "boolean",
+                    "default": true
+                },
+                "auto-mode": {
+                    "enum": [
+                        "last-upstream",
+                        "last-tag",
+                        "head-commit",
+                        "base-commit",
+                        "grep-comit",
+                        "grep-tag"
+                    ],
+                    "default": "head-commit"
+                },
+                "grep-input": {
+                    "type": "string",
+                    "default": ""
+                },
+                "value": {
+                    "type": "string",
+                    "default": ""
+                }
+            },
+            "default": {
+                "auto": true,
+                "auto-mode": "head-commit",
+                "grep-input": "",
+                "value": ""
             }
         }
     }

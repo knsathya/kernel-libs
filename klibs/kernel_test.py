@@ -24,6 +24,7 @@ import tempfile
 import re
 import shutil
 import pkg_resources
+from future.utils import viewitems
 
 from jsonparser import JSONParser
 from klibs import BuildKernel, is_valid_kernel
@@ -32,6 +33,8 @@ from pyshell import PyShell, GitShell
 from klibs import Email
 
 CHECK_PATCH_SCRIPT='scripts/checkpatch.pl'
+SPARSE_BIN_PATH='/usr/bin/sparse'
+SMATCH_BIN_PATH='/usr/bin/smatch'
 
 supported_configs = ['allyesconfig', 'allmodconfig', 'allnoconfig', 'defconfig', 'randconfig']
 supported_oldconfigs = ['olddefconfig', 'oldconfig']
@@ -46,6 +49,7 @@ class KernelResults(object):
         self.kernel_params = {}
         self.static_results = []
         self.checkpatch_results = {}
+        self.custom_results = []
         self.bisect_results = {}
         self.custom_configs = []
 
@@ -69,6 +73,7 @@ class KernelResults(object):
         res_obj["kernel-params"] = self.kernel_params
         res_obj["static-test"] = self.static_results
         res_obj["checkpatch"] = self.checkpatch_results
+        res_obj["custom-test"] = self.custom_results
         res_obj["bisect"] = self.bisect_results
 
         self.cfgobj = JSONParser(self.schema, res_obj, extend_defaults=True)
@@ -160,6 +165,24 @@ class KernelResults(object):
     def update_smatch_test_results(self, arch, config, status, warning_count=0, error_count=0):
         self._update_static_test_results("smatch-test", arch, config, status, warning_count, error_count)
 
+    def update_custom_test_results(self, name, status, **kwargs):
+        test_obj = {}
+        new_obj = True
+
+        for obj in self.custom_results:
+            if obj['name'] == name:
+                test_obj = obj
+                new_obj = False
+
+        test_obj["name"] = name
+        test_obj["status"] = status
+        for key, value in viewitems(kwargs):
+            test_obj[key] = value
+
+        if new_obj:
+            self.custom_results.append(test_obj)
+
+
     def update_checkpatch_results(self, status, warning_count=None, error_count=None):
         self.results["checkpatch"]["status"] = "Passed" if status else "Failed"
         if warning_count is not None:
@@ -208,6 +231,20 @@ class KernelResults(object):
         out += '\tstatus       : %s\n' % self.checkpatch_results["status"]
         out += '\twarning_count: %s\n' % self.checkpatch_results["warning_count"]
         out += '\terror_count  : %s\n' % self.checkpatch_results["error_count"]
+
+        return out + '\n'
+
+    def custom_test_results(self):
+        if len(self.custom_results) == 0:
+            return 'Custom Test Results: N/A\n'
+        width = len(max(self.custom_results[0].keys(), key=len)) * 2
+        out = 'Custom Test Results:\n'
+        for obj in self.results["custom-test"]:
+            out += '\t%s results:\n' % obj['name']
+            for key, value in viewitems(obj):
+                if key == 'name':
+                    continue
+                out += ('\t\t%-' + str(width) + 's: %s\n') % (key, value)
 
         return out + '\n'
 
@@ -411,6 +448,9 @@ class KernelTest(object):
         cgit = GitShell(wd=config_temp, init=True, logger=self.logger)
 
         static_config = self.cfg.get("static-config", None)
+        sparse_config = self.cfg.get("sparse-config", None)
+        smatch_config = self.cfg.get("smatch-config", None)
+        custom_test = self.cfg.get("custom-test", None)
 
         # If there is a config in remote source, fetch it and give the local path.
         def get_configsrc(options):
@@ -438,6 +478,23 @@ class KernelTest(object):
 
             return None
 
+        def get_sha(_type='head', config = None):
+            if config is None:
+                return getattr(self, _type)
+            if config[_type]['auto']:
+                if config[_type]['auto-mode'] == "last-upstream":
+                    return self.git.cmd('describe --abbrev=0 --match "v[0-9]*" --tags')[1].strip()
+                elif config[_type]['auto-mode'] == "last-tag":
+                    return self.git.cmd('describe --abbrev=0 --tags')[1].strip()
+                elif config[_type]['auto-mode'] == "head-commit":
+                    return self.git.head_sha()
+                elif config[_type]['auto-mode'] == "base-commit":
+                    return self.git.base_sha()
+            elif len(config[_type]['value']) > 0:
+                return config[_type]['value'].strip()
+            else:
+                return getattr(self, _type)
+
         def static_test(obj, cobj, config):
             status = True
 
@@ -452,17 +509,54 @@ class KernelTest(object):
                 status &= current_status
 
             if cobj["sparse-test"]:
-                current_status = self.sparse(obj["arch_name"], config, obj["compiler_options"]["CC"],
-                                             obj["compiler_options"]["cflags"],
-                                             cobj.get('name', None), get_configsrc(cobj.get('source-params', None)))
-                if current_status is False:
-                    self.logger.error("Sparse test of arch:%s config:%s failed\n" % (obj["arch_name"],
-                                                                                     cobj.get('name', config)))
+                skip = False
+                args = [
+                    obj["arch_name"], config, obj["compiler_options"]["CC"], obj["compiler_options"]["cflags"],
+                    cobj.get('name', None), get_configsrc(cobj.get('source-params', None))
+                ]
 
-                status &= current_status
+                if sparse_config is not None:
+                    if sparse_config["enable"] is False:
+                        self.logger.warning("Sparse global flag is disabled\n")
+                        skip = True
+                    else:
+                        args.append(sparse_config["cflags"])
+                        args.append(get_sha("base", sparse_config))
+                        args.append(sparse_config["source"])
+
+                if skip is False:
+                    current_status = self.sparse(*args)
+
+                    if current_status is False:
+                        self.logger.error("Sparse test of arch:%s config:%s failed\n" % (obj["arch_name"],
+                                                                                         cobj.get('name', config)))
+                    status &= current_status
+
+            if cobj["smatch-test"]:
+                skip = False
+                args = [
+                    obj["arch_name"], config, obj["compiler_options"]["CC"], obj["compiler_options"]["cflags"],
+                    cobj.get('name', None), get_configsrc(cobj.get('source-params', None))
+                ]
+
+                if smatch_config is not None:
+                    if smatch_config["enable"] is False:
+                        self.logger.warning("Smatch global flag is disabled\n")
+                        skip = True
+                    else:
+                        args.append(smatch_config["cflags"])
+                        args.append(get_sha("base", smatch_config))
+                        args.append(smatch_config["source"])
+
+                if skip is False:
+                    current_status = self.smatch(*args)
+
+                    if current_status is False:
+                        self.logger.error("Smatch test of arch:%s config:%s failed\n" % (obj["arch_name"],
+                                                                                         cobj.get('name', config)))
+                    status &= current_status
 
             return status
-
 
         if static_config is not None and static_config["enable"] is True:
             # Compile standard configs
@@ -485,24 +579,13 @@ class KernelTest(object):
         if checkpatch_config is not None and checkpatch_config["enable"] is True:
             if len(checkpatch_config["source"]) > 0:
                 self.checkpatch_source = checkpatch_config["source"]
-            head = None
-            base = None
-            def get_sha(_type='head'):
-                if checkpatch_config[_type]['auto']:
-                    if checkpatch_config[_type]['auto-mode'] == "last-upstream":
-                        return self.git.cmd('describe --abbrev=0 --match "v[0-9]*" --tags')[1].strip()
-                    elif checkpatch_config[_type]['auto-mode'] == "last-tag":
-                        return self.git.cmd('describe --abbrev=0 --tags')[1].strip()
-                    elif checkpatch_config[_type]['auto-mode'] == "head-commit":
-                        return self.git.head_sha()
-                    elif checkpatch_config[_type]['auto-mode'] == "base-commit":
-                        return self.git.base_sha()
-                elif len(checkpatch_config[_type]['value']) > 0:
-                    return checkpatch_config[_type]['value'].strip()
-                else:
-                    return getattr(self, _type)
 
-            status &= self.run_checkpatch(get_sha(), get_sha('base'))
+            status &= self.run_checkpatch(get_sha('head', checkpatch_config), get_sha('base', checkpatch_config))
+
+        if custom_test is not None and custom_test["enable"] is True:
+            for ctest in custom_test["test-list"]:
+                status &=  self.custom_test(ctest["name"], ctest["source"], ctest["arg-list"],
+                                            get_sha("head", custom_test), get_sha("base", custom_test))
 
         output_config = self.cfg.get("output-config", None)
 
@@ -524,7 +607,7 @@ class KernelTest(object):
 
         return status
 
-    def _compile(self, arch='', config='', cc='', cflags=[], name='', cfg=None):
+    def _compile(self, arch='', config='', cc='', cflags=[], name='', cfg=None, clean_build=False):
 
         custom_config = False
 
@@ -546,7 +629,10 @@ class KernelTest(object):
 
         out_dir = os.path.join(self.out, arch, name if custom_config else config)
 
-        kobj = BuildKernel(src_dir=self.src, out_dir=out_dir, arch=arch, cc=cc, cflags=cflags,logger=self.logger)
+        if clean_build:
+            self.sh.cmd("rm -fr %s/*" % out_dir, shell=True)
+
+        kobj = BuildKernel(src_dir=self.src, out_dir=out_dir, arch=arch, cc=cc, cflags=cflags, logger=self.logger)
 
         # If custom config source is given, use it.
         if custom_config:
@@ -581,17 +667,40 @@ class KernelTest(object):
 
         return status
 
-    def sparse(self, arch='', config='', cc='', cflags=[], name='', cfg=None):
+    def sparse(self, arch='', config='', cc='', cflags=[], name='', cfg=None, sparse_flags=["C=2"],
+               base=None, script_bin=SPARSE_BIN_PATH):
 
-        sparse_flags = []
+        base_warning_count = 0
+        base_error_count = 0
+        flags = []
 
-        if len(filter(lambda x: True if re.match(r'C=\d', x) else False, cflags)) == 0:
-            sparse_flags.append("C=2")
+        flags.append('CHECK="' + script_bin + '"')
 
-        if len(filter(lambda x: True if re.match(r'CHECK=(.*)?sparse(.*)?', x) else False, cflags)) == 0:
-            sparse_flags.append('CHECK="/usr/bin/sparse"')
+        if base is not None:
+            curr_head = self.git.head_sha()
 
-        status, warning_count, error_count = self._compile(arch, config, cc, sparse_flags + cflags, name, cfg)
+            if self.git.cmd('checkout', base)[0] != 0:
+                self.logger.error("Git checkout command failed in %s", base)
+                return False
+
+            status, base_warning_count, base_error_count = self._compile(arch, config, cc,
+                                                                         sparse_flags + flags + cflags,
+                                                                         name, cfg, True)
+            if status is False:
+                return False
+
+            if self.git.cmd('checkout', curr_head)[0] != 0:
+                self.logger.error("Git checkout command failed in %s", curr_head)
+                return False
+
+        status, warning_count, error_count = self._compile(arch, config, cc, sparse_flags + flags + cflags, name,
+                                                           cfg, True)
+
+        self.logger.info("Base warinings:%d Base errors:%d New warining:%d New errors:%d\n",
+                         base_error_count, base_warning_count, error_count, warning_count)
+
+        warning_count = warning_count - base_warning_count
+        error_count = error_count - base_error_count
 
         name = config if name is None or len(name) == 0 else name
 
@@ -599,17 +708,40 @@ class KernelTest(object):
 
         return status
 
-    def smatch(self, arch='', config='', cc='', cflags=[], name='', cfg=None):
+    def smatch(self, arch='', config='', cc='', cflags=[], name='', cfg=None, smatch_flags=["C=2"],
+               base=None, script_bin="smatch"):
 
-        smatch_flags = []
+        base_warning_count = 0
+        base_error_count = 0
+        flags = []
 
-        if len(filter(lambda x: True if re.match(r'C=\d', x) else False, cflags)) == 0:
-            smatch_flags.append("C=2")
+        flags.append('CHECK="' + script_bin + ' -p=kernel"')
 
-        if len(filter(lambda x: True if re.match(r'CHECK=(.*)?smatch(.*)?', x) else False, cflags)) == 0:
-            smatch_flags.append('CHECK="smatch -p=kernel"')
+        if base is not None:
+            curr_head = self.git.head_sha()
 
-        status, warning_count, error_count = self._compile(arch, config, cc, smatch_flags + cflags, name, cfg)
+            if self.git.cmd('checkout', base)[0] != 0:
+                self.logger.error("Git checkout command failed in %s", base)
+                return False
+
+            status, base_warning_count, base_error_count = self._compile(arch, config, cc,
+                                                                         smatch_flags + flags + cflags,
+                                                                         name, cfg, True)
+            if status is False:
+                return False
+
+            if self.git.cmd('checkout', curr_head)[0] != 0:
+                self.logger.error("Git checkout command failed in %s", curr_head)
+                return False
+
+        status, warning_count, error_count = self._compile(arch, config, cc, smatch_flags + flags + cflags,
+                                                           name, cfg, True)
+
+        self.logger.info("Base warinings:%d Base errors:%d New warining:%d New errors:%d\n",
+                         base_error_count, base_warning_count, error_count, warning_count)
+
+        warning_count = warning_count - base_warning_count
+        error_count = error_count - base_error_count
 
         name = config if name is None or len(name) == 0 else name
 
@@ -617,6 +749,35 @@ class KernelTest(object):
 
         return status
 
+    def process_custom_test(self, name, ret):
+        self.resobj.update_custom_test_results(name, ret[0] == 0,)
+
+    def custom_test(self, name, script, arg_list=[], head=None, base=None):
+        self.logger.info(format_h1("Running custom test %s" % name, tab=2))
+
+        if script.startswith('.'):
+            script = os.path.join(os.getcwd(), script)
+
+        if os.path.exists(script):
+            self.logger.error("Invalid script %s", script)
+            return False
+
+        cmd = [script]
+
+        if len(arg_list) > 0:
+            cmd = cmd + arg_list
+
+        if head is not None:
+            cmd.append(head)
+
+        if base is not None:
+            cmd.append(base)
+
+        ret = self.sh.cmd("%s" % (' '.join(cmd)))
+
+        self.process_custom_test(name, ret)
+
+        return (ret[0] == 0)
 
     def compile_list(self, arch='', config_list=[], cc='', cflags=[], name='', cfg=None):
         self.logger.info(format_h1("Running compile tests", tab=2))
@@ -627,28 +788,25 @@ class KernelTest(object):
 
         return result
 
-    def sparse_list(self, arch='', config_list=[], cc='', cflags=[], name='', cfg=None):
+    def sparse_list(self, arch='', config_list=[], cc='', cflags=[], name='', cfg=None, sparse_flags=["C=2"],
+                    base=None, script_bin=SPARSE_BIN_PATH):
         self.logger.info(format_h1("Running sparse tests", tab=2))
         result = []
 
         for config in config_list:
-            result.append(self.sparse(arch, config, cc, cflags, name, cfg))
+            result.append(self.sparse(arch, config, cc, cflags, name, cfg, sparse_flags, base, script_bin))
 
         return result
 
-    def smatch_list(self, arch='', config_list=[], cc='', cflags=[], name='', cfg=None):
+    def smatch_list(self, arch='', config_list=[], cc='', cflags=[], name='', cfg=None, smatch_flags=["C=2"],
+                    base=None, script_bin="smatch"):
         self.logger.info(format_h1("Running smatch tests", tab=2))
         result = []
 
         for config in config_list:
-            result.append(self.smatch(arch, config, cc, cflags, name, cfg))
+            result.append(self.smatch(arch, config, cc, cflags, name, cfg, smatch_flags, base, script_bin))
 
         return result
-
-    def run_sparse(self):
-        self.logger.info(format_h1("Run sparse Script", tab=2))
-
-        return True
 
     def run_checkpatch(self, head=None, base=None):
 
