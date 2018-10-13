@@ -228,9 +228,24 @@
                                 "description": "Script path",
                                 "type": "string"
                             },
+                            "enable-base-sub": {
+                                "description": "Enable $BASE sub",
+                                "type": "boolean",
+                                "default": true
+                            },
+                            "enable-head-sub": {
+                                "description": "Enable $HEAD sub",
+                                "type": "boolean",
+                                "default": true
+                            },
+                            "enable-src-sub": {
+                                "description": "Enable $SRC sub",
+                                "type": "boolean",
+                                "default": true
+                            },
                             "arg-list": {
                                 "type": "array",
-                                "description": "Argument list",
+                                "description": "Argument list,Use $(HEAD) to substitute head SHA or $(BASE) for base SHA",
                                 "items": {
                                     "type": "string"
                                 },

@@ -175,13 +175,12 @@ class KernelResults(object):
                 new_obj = False
 
         test_obj["name"] = name
-        test_obj["status"] = status
+        test_obj["status"] = "Passed" if status else "Failed"
         for key, value in viewitems(kwargs):
             test_obj[key] = value
 
         if new_obj:
             self.custom_results.append(test_obj)
-
 
     def update_checkpatch_results(self, status, warning_count=None, error_count=None):
         self.results["checkpatch"]["status"] = "Passed" if status else "Failed"
@@ -585,7 +584,11 @@ class KernelTest(object):
         if custom_test is not None and custom_test["enable"] is True:
             for ctest in custom_test["test-list"]:
                 status &=  self.custom_test(ctest["name"], ctest["source"], ctest["arg-list"],
-                                            get_sha("head", custom_test), get_sha("base", custom_test))
+                                            get_sha("head", custom_test),
+                                            get_sha("base", custom_test),
+                                            ctest["enable-head-sub"],
+                                            ctest["enable-base-sub"],
+                                            ctest["enable-src-sub"])
 
         output_config = self.cfg.get("output-config", None)
 
@@ -667,6 +670,32 @@ class KernelTest(object):
 
         return status
 
+    def _get_bin_path(self, path):
+        def which(program):
+            import os
+            def is_exe(fpath):
+                return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+            fpath, fname = os.path.split(program)
+            if fpath:
+                if is_exe(program):
+                    return program
+            else:
+                for path in os.environ["PATH"].split(os.pathsep):
+                    exe_file = os.path.join(path, program)
+                    if is_exe(exe_file):
+                        return exe_file
+
+            return None
+
+        if path.startswith('.'):
+            return os.path.join(os.getcwd(), path)
+        elif path.startswith('/'):
+            return path
+        else:
+            new_path = which(path)
+            return new_path if which(path) is not None else path
+
     def sparse(self, arch='', config='', cc='', cflags=[], name='', cfg=None, sparse_flags=["C=2"],
                base=None, script_bin=SPARSE_BIN_PATH):
 
@@ -674,7 +703,7 @@ class KernelTest(object):
         base_error_count = 0
         flags = []
 
-        flags.append('CHECK="' + script_bin + '"')
+        flags.append('CHECK="' + self._get_bin_path(script_bin) + '"')
 
         if base is not None:
             curr_head = self.git.head_sha()
@@ -715,7 +744,7 @@ class KernelTest(object):
         base_error_count = 0
         flags = []
 
-        flags.append('CHECK="' + script_bin + ' -p=kernel"')
+        flags.append('CHECK="' + self._get_bin_path(script_bin) + ' -p=kernel"')
 
         if base is not None:
             curr_head = self.git.head_sha()
@@ -750,15 +779,15 @@ class KernelTest(object):
         return status
 
     def process_custom_test(self, name, ret):
-        self.resobj.update_custom_test_results(name, ret[0] == 0,)
+        self.resobj.update_custom_test_results(name, ret[0] == 0)
 
-    def custom_test(self, name, script, arg_list=[], head=None, base=None):
+    def custom_test(self, name, script, arg_list=[], head=None, base=None,
+                    enable_head_sub=False, enable_base_sub=False, enable_src_sub=False):
         self.logger.info(format_h1("Running custom test %s" % name, tab=2))
 
-        if script.startswith('.'):
-            script = os.path.join(os.getcwd(), script)
+        script = self._get_bin_path(script)
 
-        if os.path.exists(script):
+        if not os.path.exists(script):
             self.logger.error("Invalid script %s", script)
             return False
 
@@ -767,11 +796,22 @@ class KernelTest(object):
         if len(arg_list) > 0:
             cmd = cmd + arg_list
 
-        if head is not None:
-            cmd.append(head)
+        # If arg has sub string $HEAD and enable_head_sub argument is set true and do a string replace.
+        if head is not None and enable_head_sub:
+            for index, item in enumerate(cmd):
+                if "$HEAD" in item:
+                    cmd[index] = cmd[index].replace("$HEAD", head)
 
-        if base is not None:
-            cmd.append(base)
+        # If arg has sub string $BASE and enable_base_sub argument is set true and do a string replace.
+        if base is not None and enable_base_sub:
+            for index, item in enumerate(cmd):
+                if "$BASE" in item:
+                    cmd[index] = cmd[index].replace("$BASE", base)
+
+        if enable_src_sub:
+            for index, item in enumerate(cmd):
+                if "$SRC" in item:
+                    cmd[index] = cmd[index].replace("$SRC", self.src)
 
         ret = self.sh.cmd("%s" % (' '.join(cmd)))
 

@@ -339,6 +339,7 @@ class BuildKernel(object):
             self.logger.error(' '.join(mkcmd) + " Command failed")
 
         self.logger.debug(out)
+        self.logger.debug(err)
 
         return ret, out, err
 
