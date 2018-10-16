@@ -651,7 +651,10 @@ class KernelTest(object):
             warning_count = len(filter(lambda x: True if "warning:" in x else False, data))
             error_count = len(filter(lambda x: True if "error:" in x else False, data))
 
-            return status, warning_count, error_count
+            warning_data =filter(lambda x: True if "warning:" in x else False, data)
+            error_data = filter(lambda x: True if "error:" in x else False, data)
+
+            return status, warning_count, error_count, warning_data, error_data
 
         status = True if ret == 0 else False
 
@@ -662,7 +665,7 @@ class KernelTest(object):
 
     def compile(self, arch='', config='', cc='', cflags=[], name='', cfg=None):
 
-        status, warning_count, error_count = self._compile(arch, config, cc, cflags, name, cfg)
+        status, warning_count, error_count, _, _ = self._compile(arch, config, cc, cflags, name, cfg)
 
         name = config if name is None or len(name) == 0 else name
 
@@ -696,11 +699,22 @@ class KernelTest(object):
             new_path = which(path)
             return new_path if which(path) is not None else path
 
+    def _diff_count(self, data1, data2):
+        ncount = 0
+        for entry in data2:
+            if entry not in data1:
+                ncount = ncount + 1
+                self.logger.debug(entry)
+
+        return ncount
+
     def sparse(self, arch='', config='', cc='', cflags=[], name='', cfg=None, sparse_flags=["C=2"],
                base=None, script_bin=SPARSE_BIN_PATH):
 
         base_warning_count = 0
         base_error_count = 0
+        base_edata = []
+        base_wdata = []
         flags = []
 
         flags.append('CHECK="' + self._get_bin_path(script_bin) + '"')
@@ -712,9 +726,10 @@ class KernelTest(object):
                 self.logger.error("Git checkout command failed in %s", base)
                 return False
 
-            status, base_warning_count, base_error_count = self._compile(arch, config, cc,
-                                                                         sparse_flags + flags + cflags,
-                                                                         name, cfg, True)
+            status, base_warning_count,\
+            base_error_count, base_wdata,\
+            base_edata = self._compile(arch, config, cc, sparse_flags + flags + cflags, name, cfg, True)
+
             if status is False:
                 return False
 
@@ -722,14 +737,19 @@ class KernelTest(object):
                 self.logger.error("Git checkout command failed in %s", curr_head)
                 return False
 
-        status, warning_count, error_count = self._compile(arch, config, cc, sparse_flags + flags + cflags, name,
-                                                           cfg, True)
+        status, warning_count,\
+        error_count, wdata, edata = self._compile(arch, config, cc, sparse_flags + flags + cflags, name, cfg, True)
 
         self.logger.info("Base warinings:%d Base errors:%d New warining:%d New errors:%d\n",
-                         base_error_count, base_warning_count, error_count, warning_count)
+                         base_warning_count, base_error_count, warning_count, error_count)
 
-        warning_count = warning_count - base_warning_count
-        error_count = error_count - base_error_count
+        self.logger.debug(format_h1("Diff between Base/New warnings", tab=2))
+        warning_count = self._diff_count(base_wdata, wdata)
+        self.logger.debug(format_h1("End of new warnings, count:%d" % warning_count, tab=2))
+
+        self.logger.debug(format_h1("Diff between Base/New errors\n", tab=2))
+        error_count = self._diff_count(base_edata, edata)
+        self.logger.debug(format_h1("End of new errors, count:%d" % error_count, tab=2))
 
         name = config if name is None or len(name) == 0 else name
 
@@ -742,6 +762,8 @@ class KernelTest(object):
 
         base_warning_count = 0
         base_error_count = 0
+        base_edata = []
+        base_wdata = []
         flags = []
 
         flags.append('CHECK="' + self._get_bin_path(script_bin) + ' -p=kernel"')
@@ -753,9 +775,10 @@ class KernelTest(object):
                 self.logger.error("Git checkout command failed in %s", base)
                 return False
 
-            status, base_warning_count, base_error_count = self._compile(arch, config, cc,
-                                                                         smatch_flags + flags + cflags,
-                                                                         name, cfg, True)
+            status, base_warning_count,\
+            base_error_count, base_wdata,\
+            base_edata = self._compile(arch, config, cc,smatch_flags + flags + cflags, name, cfg, True)
+
             if status is False:
                 return False
 
@@ -763,14 +786,19 @@ class KernelTest(object):
                 self.logger.error("Git checkout command failed in %s", curr_head)
                 return False
 
-        status, warning_count, error_count = self._compile(arch, config, cc, smatch_flags + flags + cflags,
-                                                           name, cfg, True)
+        status, warning_count,\
+        error_count, wdata, edata = self._compile(arch, config, cc, smatch_flags + flags + cflags, name, cfg, True)
 
         self.logger.info("Base warinings:%d Base errors:%d New warining:%d New errors:%d\n",
-                         base_error_count, base_warning_count, error_count, warning_count)
+                         base_warning_count, base_error_count, warning_count, error_count)
 
-        warning_count = warning_count - base_warning_count
-        error_count = error_count - base_error_count
+        self.logger.debug(format_h1("Diff between Base/New warnings", tab=2))
+        warning_count = self._diff_count(base_wdata, wdata)
+        self.logger.debug(format_h1("End of new warnings, count:%d" % warning_count, tab=2))
+
+        self.logger.debug(format_h1("Diff between Base/New errors\n", tab=2))
+        error_count = self._diff_count(base_edata, edata)
+        self.logger.debug(format_h1("End of new errors, count:%d" % error_count, tab=2))
 
         name = config if name is None or len(name) == 0 else name
 
