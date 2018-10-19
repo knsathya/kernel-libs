@@ -470,6 +470,7 @@ class KernelTest(object):
                         rname =  remote
                         break
                 cgit.add_remote(rname, options["url"])
+                cgit.cmd("pull %s" % rname)
                 cgit.cmd("checkout %s/%s" % (rname, options["branch"]))
 
                 return os.path.abspath(os.path.join(config_temp, options["remote-dir"], options["name"]))
@@ -630,6 +631,9 @@ class KernelTest(object):
 
                 custom_config = True
 
+        if name in self.custom_configs:
+            custom_config = True
+
         out_dir = os.path.join(self.out, arch, name if custom_config else config)
 
         if clean_build:
@@ -665,7 +669,23 @@ class KernelTest(object):
 
     def compile(self, arch='', config='', cc='', cflags=[], name='', cfg=None):
 
-        status, warning_count, error_count, _, _ = self._compile(arch, config, cc, cflags, name, cfg)
+        status, warning_count, error_count, wdata, edata = self._compile(arch, config, cc, cflags, name, cfg)
+
+        self.logger.info("List of warnings Arch:%s Config:%s Name:%s Count:%d\n", arch, config, name, warning_count)
+
+        for entry in wdata:
+            self.logger.info(entry)
+
+        if warning_count > 0:
+            self.logger.info("\n")
+
+        self.logger.info("List of errors Arch:%s Config:%s Name:%s Count:%d\n", arch, config, name, error_count)
+
+        for entry in edata:
+            self.logger.info(entry)
+
+        if error_count > 0:
+            self.logger.info("\n")
 
         name = config if name is None or len(name) == 0 else name
 
@@ -704,7 +724,7 @@ class KernelTest(object):
         for entry in data2:
             if entry not in data1:
                 ncount = ncount + 1
-                self.logger.debug(entry)
+                self.logger.info(entry)
 
         return ncount
 

@@ -344,9 +344,14 @@ class BuildKernel(object):
         return ret, out, err
 
     def copy_newconfig(self, cfg):
+        self.logger.info("Copy config file : %s %s" % (cfg, self.cfg))
+
         if not os.path.exists(cfg):
+            self.logger.error('Config %s does not exists' % cfg)
             return -1, '', 'Config %s does not exists' % cfg
-        copy2(cfg, self.cfg)
+
+        shell = PyShell(logger=self.logger)
+        shell.cmd("cp %s %s" % (cfg, self.cfg), shell=True)
 
     def make_kernel(self, flags=[], log=False, dryrun=False):
         assert_exists(self.cfg, "No config file found in %s" % self.cfg, logger=self.logger)
