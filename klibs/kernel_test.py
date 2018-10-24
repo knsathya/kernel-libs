@@ -458,7 +458,7 @@ class KernelTest(object):
                 return None
 
             if len(options["url"]) == 0:
-                return os.path.abspath(os.path.join(options["remote-dir"], options["name"]))
+                return os.path.abspath(os.path.join(self.src, options["remote-dir"], options["name"]))
 
             if options["sync-mode"] == "git":
                 cgit.cmd("clean -xdf")
@@ -563,7 +563,8 @@ class KernelTest(object):
             for obj in static_config["test-list"]:
 
                 for config in supported_configs:
-                    status &= static_test(obj, obj[config], config)
+                    if isinstance(obj, collections.Mapping) and obj.has_key(config):
+                        status &= static_test(obj, obj[config], config)
 
                 # Compile custom configs
                 for cobj in obj["customconfigs"]:
