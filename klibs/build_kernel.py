@@ -72,81 +72,80 @@ class KernelConfig(object):
         self.out = set_val(out, src)
         self.bkup = self.src + '.bkup' if bkup is True else self.src
         self.choices = ['y', 'm', 'n']
+        self.sh = PyShell(logger=self.logger)
+        self.sh.cmd("cp %s %s" % (self.src, self.out))
+        self.sh.cmd("cp %s %s" % (self.src, self.bkup))
+
+    def _check_num(self, s):
+        try:
+            int(s)
+            return True
+        except:
+            return False
 
     def _format_config(self, option, value):
-        return option + "=%s\n" % value if value in ["y", "m"] else "# " + option + " is not set\n"
+        if value == "n":
+            return "# " + option + " is not set\n"
+        elif value in self.choices or self._check_num(value):
+            return option + "=%s\n" % value
+        else:
+            return  option + '="%s"\n' % value
 
-    def _config_exists(self, option, content):
-        for choice in self.choices:
-            if self._format_config(option, choice) == content:
-                return True
-
-        return False
-
-    def _mod_config(self, option, value, in_file=None, out_file=None):
-
-        cfg_src = self.src if in_file is None else in_file
-
-        if value not in self.choices:
-            raise Exception("Invalid config set %s option" % value)
+    def _mod_config(self, option, value):
 
         tmp_file = tempfile.NamedTemporaryFile(mode='w+t')
 
-        with open(cfg_src) as cfgobj:
+        with open(self.out) as cfgobj:
             for line in cfgobj:
-                if not self._config_exists(option, line):
-                    tmp_file.write(line)
-                else:
+                if option in line:
+                    self.logger.info("Setting %s=%s" % (option, value))
                     tmp_file.write(self._format_config(option, value))
-        cfgobj.close()
+                else:
+                    tmp_file.write(line)
 
         tmp_file.seek(0)
+        with open(self.out, "w+") as cfgobj:
+            cfgobj.truncate()
 
-        if out_file is not None:
-            copy2(tmp_file.name, out_file)
-        else:
-            copy2(cfg_src, self.bkup)
-            copy2(tmp_file.name, self.out)
+        with open(self.out, "w+") as cfgobj:
+            for line in tmp_file:
+                cfgobj.write(line)
 
         tmp_file.close()
 
         return True
 
-    def enable_config(self, option, out_file=None):
+    def enable_config(self, option):
         """
         Enables the given config option. Usage is,
         enable_config("CONFIG_EFI")
         :param option: CONFIG_* option.
-        :param out_file: Outfile for modified config.
         :return: True | False
         """
-        return self._mod_config(option, 'y', out_file=out_file)
+        return self._mod_config(option, 'y')
 
     def module_config(self, option, out_file=None):
         """
         Modularize the given config option. Usage is,
         module_config("CONFIG_EFI")
         :param option: CONFIG_* option.
-        :param out_file: Outfile for modified config.
         :return: True | False
         """
-        return self._mod_config(option, 'm', out_file=out_file)
+        return self._mod_config(option, 'm')
 
     def disable_config(self, option, out_file=None):
         """
         Disable the given config option. Usage is,
         disable_config("CONFIG_EFI")
         :param option: CONFIG_* option.
-        :param out_file: Outfile for modified config.
         :return: True | False
         """
-        return self._mod_config(option, 'n',  out_file=out_file)
+        return self._mod_config(option, 'n')
 
-    def merge_config(self, diff_cfg, out_file=None):
+    def merge_config(self, diff_cfg):
         """
         Merge given config list to src config.
         :param diff_cfg: Config list in list format or a new file.
-        :param out_file: Outfile for modified config.
         :return: True | False
         """
         update_list = []
@@ -163,17 +162,14 @@ class KernelConfig(object):
         for line in diff_list:
             option = line.split('=')[0].strip()
             value = line.split('=')[1].strip()
-            if not option.startswith("CONFIG_") or value not in self.choices:
+            if not option.startswith("CONFIG_"):
                 self.logger.error("Invalid config : %s or value : %s" % (option, value))
                 return False
             else:
                 update_list.append((option, value))
 
-        in_file = None
         for item in update_list:
-            self._mod_config(item[0], item[1], in_file=in_file, out_file=out_file)
-            if out_file is not None:
-                in_file = out_file
+            self._mod_config(item[0], item[1])
 
         return True
 
@@ -308,7 +304,7 @@ class BuildKernel(object):
 
         for target in self.config_targets +  self.clean_targets + self.build_targets:
             def make_variant(self, target=target, flags=[], log=False, dryrun=False):
-                self._make_target(target=target, flags=flags, log=log, dryrun=dryrun)
+                return self._make_target(target=target, flags=flags, log=log, dryrun=dryrun)
             setattr(self.__class__, 'make_' + target , make_variant)
 
     def _exec_cmd(self, cmd, log=False, dryrun=False):
