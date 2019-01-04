@@ -384,10 +384,7 @@ class KernelInteg(object):
                         dret = self.git.cmd('diff', '--cached')
                         if dret[0] == 0 and len(dret[1]) == 0:
                             self.git.cmd('reset')
-                            raw_input("After reset")
                         self.git.cmd('cherry-pick', '--continue')
-                        raw_input("continue cherry pick")
-
                         return True
             return False
 
@@ -408,7 +405,6 @@ class KernelInteg(object):
                 commit_list = get_cherry_list(upstream, remote + '/' + branch if remote != '' else branch)
                 if valid_str(commit_list):
                     ret = self.git.cmd("cherry-pick", commit_list)
-                    raw_input("After cherry pick command")
                 else:
                     continue
             elif mode == "cherrypick":
